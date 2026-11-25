@@ -1,0 +1,31 @@
+// Components are declared as `let X = (...) => {...}` and reassigned with `X = styled(X)`, so a
+// component is exported under its own name: no `const StyledX = styled(X)` and no aliased exports.
+//
+// Snippets such as `$x = styled($y)` don't match tagged templates (and a snippet starting with
+// `$x =` doesn't compile), so the patterns use Biome's syntax node names.
+language js
+
+or {
+    JsVariableDeclarator(initializer = JsInitializerClause(expression = JsTemplateExpression(tag = `styled($comp)`))) as $match where {
+        register_diagnostic(
+            span = $match,
+            message = "Declare the component with let and reassign the styled version to it: X = styled(X).",
+            severity = "error"
+        )
+    },
+    JsAssignmentExpression(left = $target, right = JsTemplateExpression(tag = `styled($source)`)) as $match where {
+        $match <: not JsAssignmentExpression(left = $same, right = JsTemplateExpression(tag = `styled($same)`)),
+        register_diagnostic(
+            span = $match,
+            message = "Reassign the styled component to the component's own name: X = styled(X).",
+            severity = "error"
+        )
+    },
+    JsExportNamedSpecifier() as $match where {
+        register_diagnostic(
+            span = $match,
+            message = "Export the component under its own name instead of an alias.",
+            severity = "error"
+        )
+    }
+}

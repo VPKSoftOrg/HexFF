@@ -17,6 +17,7 @@
         "lineEnding": "lf"
     },
     "assist": { "actions": { "source": { "organizeImports": "on" } } },
+    "plugins": ["./biome-plugins/StyledLet.grit"],
     "linter": {
         "enabled": true,
         "rules": {
