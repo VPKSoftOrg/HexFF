@@ -26,7 +26,7 @@ type Props = {
 /**
  * A custom hook for the theme token.
  */
-const { useToken } = theme;
+const { useToken: useAntdToken } = theme;
 
 /**
  * A component for the antd theme changing at runtime.
@@ -75,4 +75,4 @@ const AntdThemeProvider = ({ children }: Props) => {
  */
 const useAntdTheme = () => React.useContext(ThemeContext);
 
-export { AntdThemeProvider, useAntdTheme, useToken as useAntdToken };
+export { AntdThemeProvider, useAntdTheme, useAntdToken };

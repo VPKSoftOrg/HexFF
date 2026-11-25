@@ -72,6 +72,7 @@ All steps must pass before pushing. If a step fails, fix it (`npm run lint-fix`,
 - TS/TSX filenames must be **PascalCase** (`useFilenamingConvention`), including hooks (`UseDebounce.ts`).
 - 4-space indent, 120 line width, double quotes, LF line endings, ES5 trailing commas, arrow parens only when needed.
 - Block statements required, `for...of` instead of `forEach`, `import type` for type-only imports, `===` only.
+- Styled components: declare the component as `let X = (...) => {`, reassign it with `X = styled(X)` and export it as `X`; no aliased exports (`export { A as B }`). Enforced by the GritQL plugin `biome-plugins/StyledLet.grit`.
 
 ## Git workflow
 
