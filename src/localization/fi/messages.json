@@ -3,7 +3,8 @@
     "allFiles": "Kaikki tiedostot",
     "openFile": "Avaa tiedosto",
     "fileOpenFailed": "Tiedostoa avataessa tapahtui virhe: '{{error}}'.",
-    "fileReadFailed": "Tiedostoa avataessa tapahtui virhe: '{{error}}'.",
+    "fileReadFailed": "Tiedostoa luettaessa tapahtui virhe: '{{error}}'.",
+    "fileCloseFailed": "Tiedostoa suljettaessa tapahtui virhe: '{{error}}'.",
     "couldNotGetOpenedFiles": "Avattuja tiedostoja ei saatu haettua virheellä: '{{error}}'.",
     "litleEndian": "Nouseva tavujärjestys",
     "bigEndian": "Laskeva tavujärjestys"

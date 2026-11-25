@@ -54,21 +54,16 @@ pub fn get_app_config() -> AppConfig {
         )),
     };
 
-    let result = match loaded {
+    match loaded {
         Ok(v) => v,
-        Err(e) => {
-            let result = AppConfig {
-                error_message: e.to_string(),
-                error: true,
-                locale: "en".to_string(),
-                save_window_state: false,
-                dark_mode: false,
-            };
-            result
-        }
-    };
-
-    result
+        Err(e) => AppConfig {
+            error_message: e.to_string(),
+            error: true,
+            locale: "en".to_string(),
+            save_window_state: false,
+            dark_mode: false,
+        },
+    }
 }
 
 /// Saves the application config to a settings file using confy. The file format is TOML.

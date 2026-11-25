@@ -17,7 +17,7 @@ import { appMenuItems, type MenuKeys } from "./menu/MenuItems";
 import { appToolbarItems } from "./menu/ToolbarItems";
 import { selectFileToOpen } from "./utilities/app/Files";
 import { useSettings } from "./utilities/app/Settings";
-import { type AppFileStateResult, getOpenFiles, openFile } from "./utilities/app/TauriWrappers";
+import { closeFile, type DocumentInfo, getOpenFiles, openFile } from "./utilities/app/TauriWrappers";
 
 /**
  * Renders the main application component.
@@ -29,7 +29,8 @@ const App = () => {
     const [preferencesVisible, setPreferencesVisible] = React.useState(false);
     const [settings, settingsLoaded, updateSettings, reloadSettings] = useSettings();
     const [contextHolder, notification] = useNotify();
-    const [openFiles, setOpenFiles] = useState<AppFileStateResult[]>([]);
+    const [openFiles, setOpenFiles] = useState<DocumentInfo[]>([]);
+    const [activeFileId, setActiveFileId] = useState<number | null>(null);
     const { translate, setLocale } = useTranslate();
     const { token } = useAntdToken();
     const { setTheme, updateBackround } = useAntdTheme();
@@ -37,18 +38,44 @@ const App = () => {
 
     const { setStateSaverEnabled, restoreState } = useWindowStateSaver(10_000);
 
-    // Refresh the list of open files for the frontend side
-    // as the state of the backend may already exist. E.g. for the reason
-    // of the frontend refresh or similar.
-    React.useEffect(() => {
-        getOpenFiles()
-            .then((openFiles: AppFileStateResult[]) => {
-                setOpenFiles(openFiles);
-            })
-            .catch((error: Error) => {
+    // Refresh the list of open files from the backend. The active file is kept if it is still open,
+    // otherwise the last open file becomes active.
+    const refreshOpenFiles = React.useCallback(
+        async (activateId?: number) => {
+            try {
+                const files = await getOpenFiles();
+                setOpenFiles(files);
+                setActiveFileId(current => {
+                    const preferred = activateId ?? current;
+                    if (preferred !== null && files.some(f => f.id === preferred)) {
+                        return preferred;
+                    }
+                    return files.length > 0 ? files[files.length - 1].id : null;
+                });
+            } catch (error) {
                 notification("error", translate("couldNotGetOpenedFiles", undefined, { error }));
-            });
-    }, [notification, translate]);
+            }
+        },
+        [notification, translate]
+    );
+
+    // The backend state may already exist, e.g. after a frontend reload.
+    React.useEffect(() => {
+        void refreshOpenFiles();
+    }, [refreshOpenFiles]);
+
+    const onCloseFile = React.useCallback(
+        (id: number) => {
+            closeFile(id)
+                .catch((error: Error) => {
+                    notification("error", translate("fileCloseFailed", undefined, { error }));
+                })
+                .finally(() => {
+                    void refreshOpenFiles();
+                });
+        },
+        [notification, refreshOpenFiles, translate]
+    );
 
     // Enable the window state saver if the settings are loaded.
     // Also restore the previous window state.
@@ -105,18 +132,9 @@ const App = () => {
                             if (filePath === null) {
                                 return;
                             }
-                            openFile(filePath, false)
-                                .then(() => {
-                                    getOpenFiles()
-                                        .then((openFiles: AppFileStateResult[]) => {
-                                            setOpenFiles(openFiles);
-                                        })
-                                        .catch((error: Error) => {
-                                            notification(
-                                                "error",
-                                                translate("couldNotGetOpenedFiles", undefined, { error })
-                                            );
-                                        });
+                            openFile(filePath)
+                                .then((document: DocumentInfo) => {
+                                    void refreshOpenFiles(document.id);
                                 })
                                 .catch((error: Error) => {
                                     notification("error", translate("fileOpenFailed", undefined, { error }));
@@ -133,7 +151,7 @@ const App = () => {
                 }
             }
         },
-        [notification, translate]
+        [notification, refreshOpenFiles, translate]
     );
 
     // Close the preferences popup.
@@ -195,6 +213,9 @@ const App = () => {
             <div>
                 <TabbedFilesComponent //
                     openFiles={openFiles}
+                    activeFileId={activeFileId}
+                    onActiveFileChange={setActiveFileId}
+                    onCloseFile={onCloseFile}
                     notification={notification}
                 />
             </div>

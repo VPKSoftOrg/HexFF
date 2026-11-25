@@ -27,11 +27,12 @@ const useDebounce = (callBack: () => void | Promise<void>, timeOut: number, deps
         return () => clearInterval(onInterval);
     }, [intervalCallBack]);
 
+    // Restart the timer when the callback or one of the user defined dependencies changes.
     // biome-ignore lint/correctness/useExhaustiveDependencies: These are supposed to be user defined dependencies
     React.useEffect(() => {
         lastTime.current = new Date();
         effectPending.current = true;
-    }, [deps]);
+    }, [callBack, ...(deps ?? [])]);
 };
 
 /**

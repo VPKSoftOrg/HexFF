@@ -107,19 +107,8 @@ const dataInPositionResultDefault: DataInPositionResult = {
 };
 
 const getValueByKey = (key: DataInPositionResultKey, value: DataInPositionResult) => {
-    if (
-        key === "char_le_ascii" ||
-        key === "char_be_ascii" ||
-        key === "char_le_utf8" ||
-        key === "char_be_utf8" ||
-        key === "char_le_utf16" ||
-        key === "char_be_utf16" ||
-        key === "char_le_utf32" ||
-        key === "char_be_utf32"
-    ) {
-        return (value[key] as string)[0];
-    }
-    return value[key];
+    // A null value means there are not enough bytes left in the file for the type.
+    return value[key] ?? "";
 };
 
 const ByteValueView = styled(ByteValueViewComponent)`

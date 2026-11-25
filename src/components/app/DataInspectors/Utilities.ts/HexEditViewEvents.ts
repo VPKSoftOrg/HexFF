@@ -1,7 +1,7 @@
 import { columns } from "../HexEditView";
 
-const getHexInputElement = (fileIndex: number, id: number) => {
-    return document.querySelector(`[data-input-id="${fileIndex}_${id}"]`) as HTMLElement | undefined;
+const getHexInputElement = (fileId: number, id: number) => {
+    return document.querySelector(`[data-input-id="${fileId}_${id}"]`) as HTMLElement | undefined;
 };
 
 const eventPreventAndStop = (event: Event) => {
@@ -9,8 +9,8 @@ const eventPreventAndStop = (event: Event) => {
     event.stopPropagation();
 };
 
-const focusInputId = (file_index: number, id: number) => {
-    getHexInputElement(file_index, id)?.focus();
+const focusInputId = (fileId: number, id: number) => {
+    getHexInputElement(fileId, id)?.focus();
 };
 
 const HexEditViewKeyBoardHandler = (
@@ -20,7 +20,7 @@ const HexEditViewKeyBoardHandler = (
     listenKeyboard: boolean,
     fileSize: number,
     rows: number,
-    file_index: number
+    fileId: number
 ) => {
     if (!listenKeyboard) {
         return;
@@ -45,7 +45,7 @@ const HexEditViewKeyBoardHandler = (
         case "PageUp": {
             if (id > 0) {
                 // Move the cursor to the first input.
-                focusInputId(file_index, 0);
+                focusInputId(fileId, 0);
                 eventPreventAndStop(event);
             } else if (currentPosition - pageSize >= 0) {
                 // Move the file position by one page size backward.
@@ -62,7 +62,7 @@ const HexEditViewKeyBoardHandler = (
         case "PageDown": {
             if (id + 1 < pageSize) {
                 // Move the cursor to the last input.
-                focusInputId(file_index, pageSize - 1);
+                focusInputId(fileId, pageSize - 1);
                 eventPreventAndStop(event);
             } else if (fromPosition + pageSize <= maxPosition) {
                 // Move the file position by one page size forward.
@@ -79,11 +79,11 @@ const HexEditViewKeyBoardHandler = (
         case "ArrowUp": {
             if (id > 0 && id - columns < 0) {
                 // Move the cursor to the previous input if the first row is focused.
-                focusInputId(file_index, id - 1);
+                focusInputId(fileId, id - 1);
                 eventPreventAndStop(event);
             } else if (id - columns >= 0) {
                 // Move the cursor to the previous row.
-                focusInputId(file_index, id - columns);
+                focusInputId(fileId, id - columns);
                 eventPreventAndStop(event);
             } else if (fromPosition - columns >= 0) {
                 // Move the file position by one row backward.
@@ -96,11 +96,11 @@ const HexEditViewKeyBoardHandler = (
         case "ArrowDown": {
             if (id < maxId && id + columns >= maxId) {
                 // Move the cursor to the next input if the last row is focused.
-                focusInputId(file_index, id + 1);
+                focusInputId(fileId, id + 1);
                 eventPreventAndStop(event);
             } else if (id + 1 < pageSize) {
                 // Move the cursor to the next row.
-                focusInputId(file_index, id + columns);
+                focusInputId(fileId, id + columns);
                 eventPreventAndStop(event);
             } else if (fromPosition + columns < fileSize) {
                 // Move the file position by one row forward.
@@ -113,12 +113,12 @@ const HexEditViewKeyBoardHandler = (
         case "ArrowLeft": {
             if (id > 0) {
                 // Move the cursor to the previous input.
-                focusInputId(file_index, id - 1);
+                focusInputId(fileId, id - 1);
                 eventPreventAndStop(event);
             } else if (fromPosition - columns >= 0) {
                 // Move the file position by one column backward.
                 setFromPosition(fromPosition - columns);
-                focusInputId(file_index, columns - 1);
+                focusInputId(fileId, columns - 1);
                 eventPreventAndStop(event);
             }
 
@@ -127,13 +127,13 @@ const HexEditViewKeyBoardHandler = (
         case "ArrowRight": {
             if (id < maxId) {
                 // Move the cursor to the next input.
-                const inputElement = getHexInputElement(file_index, id + 1);
+                const inputElement = getHexInputElement(fileId, id + 1);
                 inputElement?.focus();
                 eventPreventAndStop(event);
             } else if (fromPosition + columns < fileSize) {
                 // Move the file position by one column forward.
                 setFromPosition(fromPosition + columns);
-                focusInputId(file_index, maxId + 1 - columns);
+                focusInputId(fileId, maxId + 1 - columns);
                 eventPreventAndStop(event);
             }
 
