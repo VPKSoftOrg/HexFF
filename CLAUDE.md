@@ -14,10 +14,11 @@ Requires Node.js 26+ (`engines` in `package.json`; CI uses Node 26).
 - `npm run tauri dev` — run the desktop app in dev mode (starts Vite on port 1420 via `beforeDevCommand`)
 - `npm run build` — type-check (`tsc`) and build the frontend into `dist/`
 - `npm run tauri build` — full release build (this is what CI runs); `npm run test-release` builds without bundling installers
+- `npm test` — run the frontend unit tests once (Vitest, `*.test.ts` next to the code they test); `npx vitest` watches
 - `npm run lint` — Biome lint + format check + check (CI gate); `npm run lint-fix` applies fixes
-- Rust: `cargo build` / `cargo test` / `cargo clippy --all-targets -- -D warnings` / `cargo fmt --all` from the repo root (root `Cargo.toml` is a workspace with `src-tauri` as its only member). Run a single test with `cargo test <name>`, e.g. `cargo test inspect::tests::text_utf8`. Compiling the crate needs `dist/` to exist (`npm run build` first). There are no frontend tests.
+- Rust: `cargo build` / `cargo test` / `cargo clippy --all-targets -- -D warnings` / `cargo fmt --all` from the repo root (root `Cargo.toml` is a workspace with `src-tauri` as its only member). Run a single test with `cargo test <name>`, e.g. `cargo test inspect::tests::text_utf8`. Compiling the crate needs `dist/` to exist (`npm run build` first). Rust tests sit in a `#[cfg(test)] mod tests` at the end of each module; tests of JSON shapes (`serde_json::to_value`) guard the contract with the TypeScript types in `TauriWrappers.ts` and `Settings.ts`.
 
-CI (`.github/workflows/main-lint-test-deploy.yml`) runs on PRs to `master`, `develop`, `release/**` on macOS/Ubuntu/Windows: `npm run lint`, `cargo fmt --check`, `npm run tauri build`, then clippy with `-D warnings` and `cargo test`. PRs target `develop`.
+CI (`.github/workflows/main-lint-test-deploy.yml`) runs on PRs to `master`, `develop`, `release/**` on macOS/Ubuntu/Windows: `npm run lint`, `npm test`, `cargo fmt --check`, `npm run tauri build`, then clippy with `-D warnings` and `cargo test`. PRs target `develop`.
 
 ## Architecture
 
@@ -38,7 +39,9 @@ CI (`.github/workflows/main-lint-test-deploy.yml`) runs on PRs to `master`, `dev
 - `read_range(id, offset, length)` returns raw bytes via `tauri::ipc::Response` (an `ArrayBuffer` in the frontend, wrapped as `Uint8Array`); results are shorter at end of file and capped at `MAX_READ_LENGTH`.
 - `src-tauri/src/inspect.rs` holds the pure decoding functions used by the inspectors. Data inspector values are `Option` (`null` in TS) when fewer bytes remain than the type needs. Text inspector output is one cell per byte: a character sits in the cell of its first byte and continuation cells are empty. UTF-8 has no byte order.
 
-**Settings** are persisted by `confy` (TOML, app name `hex_ff`) via `src-tauri/src/config.rs`; the `AppConfig` struct there must stay in sync with the `Settings` type in `src/utilities/app/Settings.ts`.
+**Settings** are persisted by `confy` (TOML, app name `hex_ff`) via `src-tauri/src/config.rs` (`load_from`/`store_to` take the path, so tests use a temp dir); the `AppConfig` struct there must stay in sync with the `Settings` type in `src/utilities/app/Settings.ts`.
+
+**Frontend tests** use Vitest in a Node environment (no DOM): pure modules such as `HexNavigation.ts` are tested directly, and Tauri calls are tested by mocking `@tauri-apps/api/core` / `event` with `vi.mock` (see `TauriWrappers.test.ts`). Test files must follow the PascalCase filename rule too.
 
 **Frontend layout**: `src/App.tsx` owns the open-file list and active file, and handles menu/toolbar actions (`src/menu/`). Actions aimed at the active file (e.g. Go to offset) are sent as a `HexViewCommand` with an increasing `seq`, which the active `HexView` reacts to. `TabbedFilesComponent` renders one tab per open file; inactive tabs stay mounted, so each view keeps its own cursor and scroll position. The window is undecorated (`decorations: false`), so `WindowTitle.tsx` draws the title bar. Theming goes through `src/context/AntdThemeContext.tsx`; the hex grid gets its colors from antd tokens as CSS variables.
 

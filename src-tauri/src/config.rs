@@ -1,9 +1,9 @@
 use directories::ProjectDirs;
 use serde_derive::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// The software settings.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AppConfig {
     /// The current application locale used by the i18next library
     locale: String,
@@ -47,22 +47,9 @@ fn config_file_path() -> Option<PathBuf> {
 /// # Returns
 /// An AppConfig value
 pub fn get_app_config() -> AppConfig {
-    let loaded = match config_file_path() {
-        Some(path) => confy::load_path(path),
-        None => Err(confy::ConfyError::BadConfigDirectory(
-            "could not determine home directory path".to_string(),
-        )),
-    };
-
-    match loaded {
-        Ok(v) => v,
-        Err(e) => AppConfig {
-            error_message: e.to_string(),
-            error: true,
-            locale: "en".to_string(),
-            save_window_state: false,
-            dark_mode: false,
-        },
+    match config_file_path() {
+        Some(path) => load_from(&path),
+        None => error_config("could not determine home directory path".to_string()),
     }
 }
 
@@ -75,7 +62,102 @@ pub fn get_app_config() -> AppConfig {
 /// `true` if the config was successfully saved; `false` otherwise.
 pub fn set_app_config(config: AppConfig) -> bool {
     match config_file_path() {
-        Some(path) => confy::store_path(path, config).is_ok(),
+        Some(path) => store_to(&path, config),
         None => false,
+    }
+}
+
+/// Loads the config from `path`. A missing file is created with the default values; a file that
+/// can't be read gives the default values with `error` set.
+fn load_from(path: &Path) -> AppConfig {
+    confy::load_path(path).unwrap_or_else(|e| error_config(e.to_string()))
+}
+
+/// Stores the config to `path`. Returns `true` on success.
+fn store_to(path: &Path, config: AppConfig) -> bool {
+    confy::store_path(path, config).is_ok()
+}
+
+/// The default config marked with a load error.
+fn error_config(error_message: String) -> AppConfig {
+    AppConfig {
+        error: true,
+        error_message,
+        ..AppConfig::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn missing_file_loads_defaults_and_creates_the_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("config.toml");
+
+        assert_eq!(load_from(&path), AppConfig::default());
+        assert!(path.is_file());
+    }
+
+    #[test]
+    fn stored_config_loads_back() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("config.toml");
+        let config = AppConfig {
+            locale: "fi".to_string(),
+            save_window_state: true,
+            dark_mode: true,
+            ..AppConfig::default()
+        };
+
+        assert!(store_to(&path, config.clone()));
+        assert_eq!(load_from(&path), config);
+    }
+
+    #[test]
+    fn invalid_file_loads_defaults_with_an_error() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("config.toml");
+        fs::write(&path, "this is = not [valid toml").unwrap();
+
+        let config = load_from(&path);
+        assert!(config.error);
+        assert!(!config.error_message.is_empty());
+        assert_eq!(config.locale, "en");
+        assert!(!config.dark_mode);
+    }
+
+    #[test]
+    fn storing_into_a_missing_directory_creates_it() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("nested").join("config.toml");
+
+        assert!(store_to(&path, AppConfig::default()));
+        assert!(path.is_file());
+    }
+
+    /// The field names are part of the contract with the `Settings` type in `Settings.ts`.
+    #[test]
+    fn serialized_field_names_match_the_frontend() {
+        let value = serde_json::to_value(AppConfig::default()).unwrap();
+        let mut keys: Vec<&str> = value
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            [
+                "dark_mode",
+                "error",
+                "error_message",
+                "locale",
+                "save_window_state"
+            ]
+        );
     }
 }
