@@ -1,6 +1,5 @@
 import { faDoorOpen, faFolderOpen, faGear, faInfo } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import * as React from "react";
 import type { LocalizeFunction } from "../localization/Localization";
 import type { ToolBarItem, ToolBarSeparator } from "./AppToolbar";
 import type { MenuKeys } from "./MenuItems";

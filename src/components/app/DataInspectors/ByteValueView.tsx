@@ -1,6 +1,6 @@
 import classNames from "classnames";
-import * as React from "react";
 import type { JSX } from "react";
+import * as React from "react";
 import { styled } from "styled-components";
 import type { DataInPositionResult } from "../../../utilities/app/TauriWrappers";
 import type { CommonProps } from "../../Types";

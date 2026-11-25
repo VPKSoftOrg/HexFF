@@ -25,5 +25,5 @@ const encodingLookupOptions = [
     { value: CharacterMode.Utf32, label: "UTF-32" },
 ];
 
-export { CharacterMode, encodingLookupOptions };
 export type { CommonProps };
+export { CharacterMode, encodingLookupOptions };

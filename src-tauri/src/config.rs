@@ -1,4 +1,6 @@
+use directories::ProjectDirs;
 use serde_derive::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 /// The software settings.
 #[derive(Debug, Serialize, Deserialize)]
@@ -28,12 +30,31 @@ impl ::std::default::Default for AppConfig {
     }
 }
 
+/// Gets the settings file path.
+///
+/// confy 1.0+ resolves its default directory with a different strategy, which moves the file on macOS
+/// (`~/Library/Application Support/rs.hex_ff` -> `~/.config/hex_ff`). Resolving the path here keeps the
+/// location confy 0.6 used, so existing settings are still found.
+///
+/// # Returns
+/// The settings file path, or `None` if the home directory can't be determined.
+fn config_file_path() -> Option<PathBuf> {
+    ProjectDirs::from("rs", "", "hex_ff").map(|dirs| dirs.config_dir().join("default-config.toml"))
+}
+
 /// Gets the application config from a file or default if one doesn't exist.
 ///
 /// # Returns
 /// An AppConfig value
 pub fn get_app_config() -> AppConfig {
-    let result = match confy::load("hex_ff", None) {
+    let loaded = match config_file_path() {
+        Some(path) => confy::load_path(path),
+        None => Err(confy::ConfyError::BadConfigDirectory(
+            "could not determine home directory path".to_string(),
+        )),
+    };
+
+    let result = match loaded {
         Ok(v) => v,
         Err(e) => {
             let result = AppConfig {
@@ -58,10 +79,8 @@ pub fn get_app_config() -> AppConfig {
 /// # Returns
 /// `true` if the config was successfully saved; `false` otherwise.
 pub fn set_app_config(config: AppConfig) -> bool {
-    let result = match confy::store("hex_ff", None, config) {
-        Ok(_) => true,
-        Err(_) => false,
-    };
-
-    result
+    match config_file_path() {
+        Some(path) => confy::store_path(path, config).is_ok(),
+        None => false,
+    }
 }

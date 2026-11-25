@@ -18,11 +18,12 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1.44.0", features = ["full"] }
-confy = "0.6.1"
-serde_derive = "1.0.218"
+tokio = { version = "1.54.1", features = ["full"] }
+confy = "2.0.0"
+directories = "6.0.0"
+serde_derive = "1.0.229"
 tauri-plugin-window-state = { version = "2" }
-base64 = "0.22.1"
+base64 = "0.23.1"
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-process = "2"
