@@ -6,6 +6,13 @@ refactoring and maintenance raise the patch version.
 
 The versions before 0.8.1 were assigned afterwards from the git history; they were never released or tagged.
 
+## [0.8.2] - 2026-11-25
+
+### Fixed
+- The view grew without end, with high CPU usage, when the text inspector was open on a large file
+  (the file tab's height CSS still used antd 5 class names).
+- The text inspector no longer shows a horizontal scrollbar when the inspector panel scrolls vertically.
+
 ## [0.8.1] - 2026-11-25
 
 ### Added
