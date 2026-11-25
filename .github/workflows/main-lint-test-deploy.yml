@@ -22,7 +22,7 @@ jobs:
           git config --global core.eol lf
                 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-24.04'
@@ -42,7 +42,7 @@ jobs:
           workspaces: '. -> target'
 
       - name: Sync node version and setup cache
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 26
           cache: 'npm' # Set this to npm, yarn or pnpm.
