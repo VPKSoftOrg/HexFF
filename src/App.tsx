@@ -66,6 +66,11 @@ const App = () => {
         void refreshOpenFiles();
     }, [refreshOpenFiles]);
 
+    // Keep the tab list in step with edits made in a view.
+    const onDocumentChange = React.useCallback((document: DocumentInfo) => {
+        setOpenFiles(files => files.map(f => (f.id === document.id ? document : f)));
+    }, []);
+
     const onCloseFile = React.useCallback(
         (id: number) => {
             closeFile(id)
@@ -130,6 +135,18 @@ const App = () => {
                 }
                 case "goToOffsetMenu": {
                     setViewCommand(current => ({ type: "goToOffset", seq: (current?.seq ?? 0) + 1 }));
+                    break;
+                }
+                case "undoMenu": {
+                    setViewCommand(current => ({ type: "undo", seq: (current?.seq ?? 0) + 1 }));
+                    break;
+                }
+                case "redoMenu": {
+                    setViewCommand(current => ({ type: "redo", seq: (current?.seq ?? 0) + 1 }));
+                    break;
+                }
+                case "insertModeMenu": {
+                    setViewCommand(current => ({ type: "toggleInsertMode", seq: (current?.seq ?? 0) + 1 }));
                     break;
                 }
                 case "openFile": {
@@ -223,6 +240,7 @@ const App = () => {
                     onActiveFileChange={setActiveFileId}
                     onCloseFile={onCloseFile}
                     command={viewCommand}
+                    onDocumentChange={onDocumentChange}
                     notification={notification}
                 />
             </div>

@@ -1,7 +1,7 @@
 import { Input, type InputRef, Modal, Radio, type RadioChangeEvent, Typography } from "antd";
 import * as React from "react";
 import { useTranslate } from "../../../localization/Localization";
-import { maxCursor, parseOffset } from "./HexNavigation";
+import { lastByteOffset, parseOffset } from "./HexNavigation";
 
 /**
  * The props for the {@link GoToOffsetPopup} component.
@@ -27,7 +27,7 @@ export const GoToOffsetPopup = ({ open, fileSize, initialOffset, onGoTo, onCance
     const [showError, setShowError] = React.useState(false);
     const inputRef = React.useRef<InputRef>(null);
 
-    const max = maxCursor(fileSize);
+    const max = lastByteOffset(fileSize);
     const offset = parseOffset(text, hexadecimal);
     const valid = offset !== null && offset <= max;
 

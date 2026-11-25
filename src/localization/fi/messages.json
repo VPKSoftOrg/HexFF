@@ -7,5 +7,6 @@
     "fileCloseFailed": "Tiedostoa suljettaessa tapahtui virhe: '{{error}}'.",
     "couldNotGetOpenedFiles": "Avattuja tiedostoja ei saatu haettua virheellä: '{{error}}'.",
     "litleEndian": "Nouseva tavujärjestys",
-    "bigEndian": "Laskeva tavujärjestys"
+    "bigEndian": "Laskeva tavujärjestys",
+    "fileEditFailed": "Muokkaus epäonnistui virheellä: '{{error}}'."
 }

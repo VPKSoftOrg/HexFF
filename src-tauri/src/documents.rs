@@ -1,3 +1,5 @@
+use crate::history::{Change, History};
+use crate::piece_table::PieceTable;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::File;
@@ -12,6 +14,9 @@ pub type DocumentId = u64;
 /// The largest range a single `read_range` call may return.
 pub const MAX_READ_LENGTH: usize = 16 * 1024 * 1024;
 
+/// The largest number of bytes a single edit may insert.
+pub const MAX_EDIT_LENGTH: usize = 16 * 1024 * 1024;
+
 /// Information about an open document, sent to the frontend.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct DocumentInfo {
@@ -21,17 +26,25 @@ pub struct DocumentInfo {
     pub path: String,
     /// The file name without the directory.
     pub name: String,
-    /// The file size in bytes.
+    /// The size of the edited content in bytes.
     pub size: u64,
+    /// Whether the content differs from the file on disk.
+    pub modified: bool,
+    pub can_undo: bool,
+    pub can_redo: bool,
 }
 
-/// An open file.
+/// An open file and its unsaved edits.
+///
+/// The file on disk is opened read-only and is not changed by edits; the edits live in a
+/// [`PieceTable`] on top of it.
 pub struct Document {
     id: DocumentId,
     path: PathBuf,
     canonical_path: PathBuf,
     file: File,
-    size: u64,
+    table: PieceTable,
+    history: History,
 }
 
 impl Document {
@@ -52,7 +65,8 @@ impl Document {
             path: path.to_path_buf(),
             canonical_path,
             file,
-            size: metadata.len(),
+            table: PieceTable::new(metadata.len()),
+            history: History::default(),
         })
     }
 
@@ -66,29 +80,67 @@ impl Document {
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or_else(|| self.path.to_string_lossy().into_owned()),
-            size: self.size,
+            size: self.table.len(),
+            modified: self.history.is_modified(),
+            can_undo: self.history.can_undo(),
+            can_redo: self.history.can_redo(),
         }
     }
 
-    /// Reads up to `length` bytes starting from `offset`.
+    /// Reads up to `length` bytes of the edited content starting from `offset`.
     ///
-    /// The result is shorter than `length` when the range extends past the end of the file,
-    /// and empty when `offset` is at or past the end of the file.
+    /// The result is shorter than `length` when the range extends past the end,
+    /// and empty when `offset` is at or past the end.
     pub fn read_range(&mut self, offset: u64, length: usize) -> io::Result<Vec<u8>> {
-        if offset >= self.size || length == 0 {
-            return Ok(Vec::new());
+        let file = &mut self.file;
+        self.table.read(offset, length, |original_offset, buffer| {
+            file.seek(SeekFrom::Start(original_offset))?;
+            file.read_exact(buffer)
+        })
+    }
+
+    /// Replaces `remove_len` bytes at `offset` with `data`.
+    ///
+    /// This covers overwriting (`remove_len` equal to the data length), inserting (`remove_len` 0)
+    /// and deleting (empty `data`). `remove_len` is shortened at the end of the content.
+    /// With `continue_step`, the edit is undone together with the previous one.
+    pub fn edit(
+        &mut self,
+        offset: u64,
+        remove_len: u64,
+        data: &[u8],
+        continue_step: bool,
+    ) -> Result<(), String> {
+        if offset > self.table.len() {
+            return Err(format!(
+                "Edit offset {offset} is past the end ({})",
+                self.table.len()
+            ));
+        }
+        if data.len() > MAX_EDIT_LENGTH {
+            return Err(format!(
+                "Edit length {} exceeds the maximum of {MAX_EDIT_LENGTH} bytes",
+                data.len()
+            ));
+        }
+        let remove_len = remove_len.min(self.table.len() - offset);
+        if remove_len == 0 && data.is_empty() {
+            return Ok(());
         }
 
-        let available = usize::try_from(self.size - offset).unwrap_or(usize::MAX);
-        let length = length.min(available);
-        let mut buffer = Vec::with_capacity(length);
+        let change = Change::apply(&mut self.table, offset, remove_len, data);
+        self.history.record(change, continue_step);
+        Ok(())
+    }
 
-        self.file.seek(SeekFrom::Start(offset))?;
-        (&mut self.file)
-            .take(length as u64)
-            .read_to_end(&mut buffer)?;
+    /// Undoes the latest edit step. Returns its offset, or `None` if there was nothing to undo.
+    pub fn undo(&mut self) -> Option<u64> {
+        self.history.undo(&mut self.table)
+    }
 
-        Ok(buffer)
+    /// Redoes the latest undone step. Returns its offset, or `None` if there was nothing to redo.
+    pub fn redo(&mut self) -> Option<u64> {
+        self.history.redo(&mut self.table)
     }
 }
 
@@ -171,6 +223,14 @@ impl DocumentStore {
             .ok_or_else(|| format!("No open document with id {id}"))
     }
 
+    /// Updates the stored information of a document after it changed.
+    pub fn update_info(&self, info: &DocumentInfo) -> Result<(), String> {
+        if let Some(entry) = self.lock_documents()?.get_mut(&info.id) {
+            entry.info = info.clone();
+        }
+        Ok(())
+    }
+
     /// Lists the open documents in the order they were opened.
     pub fn list(&self) -> Result<Vec<DocumentInfo>, String> {
         let mut result: Vec<DocumentInfo> = self
@@ -247,10 +307,66 @@ mod tests {
 
         assert_eq!(info.id, 7);
         assert_eq!(info.size, 3);
+        assert!(!info.modified);
+        assert!(!info.can_undo);
         assert_eq!(
             info.name,
             file.path().file_name().unwrap().to_string_lossy()
         );
+    }
+
+    #[test]
+    fn edits_change_content_but_not_the_file() {
+        let file = temp_file(b"0123456789");
+        let mut document = Document::open(1, file.path()).unwrap();
+
+        document.edit(2, 1, b"X", false).unwrap();
+        document.edit(5, 0, b"ins", false).unwrap();
+        document.edit(0, 2, b"", false).unwrap();
+
+        assert_eq!(document.read_range(0, 100).unwrap(), b"X34ins56789");
+        let info = document.info();
+        assert_eq!(info.size, 11);
+        assert!(info.modified);
+        assert!(info.can_undo);
+        assert_eq!(std::fs::read(file.path()).unwrap(), b"0123456789");
+    }
+
+    #[test]
+    fn undo_and_redo_report_offsets() {
+        let file = temp_file(b"0123456789");
+        let mut document = Document::open(1, file.path()).unwrap();
+
+        document.edit(4, 1, b"A", false).unwrap();
+        document.edit(5, 1, b"B", true).unwrap();
+
+        assert_eq!(document.undo(), Some(4));
+        assert_eq!(document.read_range(0, 100).unwrap(), b"0123456789");
+        assert!(!document.info().modified);
+        assert!(document.info().can_redo);
+        assert_eq!(document.undo(), None);
+
+        assert_eq!(document.redo(), Some(4));
+        assert_eq!(document.read_range(0, 100).unwrap(), b"0123AB6789");
+    }
+
+    #[test]
+    fn edit_past_end_is_an_error_and_append_works() {
+        let file = temp_file(b"ab");
+        let mut document = Document::open(1, file.path()).unwrap();
+
+        assert!(document.edit(3, 0, b"x", false).is_err());
+        document.edit(2, 0, b"c", false).unwrap();
+        assert_eq!(document.read_range(0, 10).unwrap(), b"abc");
+    }
+
+    #[test]
+    fn empty_edit_is_not_recorded() {
+        let file = temp_file(b"ab");
+        let mut document = Document::open(1, file.path()).unwrap();
+
+        document.edit(1, 0, b"", false).unwrap();
+        assert!(!document.info().can_undo);
     }
 
     #[test]

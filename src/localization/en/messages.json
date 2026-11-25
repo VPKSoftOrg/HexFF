@@ -7,5 +7,6 @@
     "fileCloseFailed": "File close failed with message '{{error}}'.",
     "couldNotGetOpenedFiles": "Could not get opened files with message '{{error}}'.",
     "litleEndian": "Litle endian",
-    "bigEndian": "Big endian"
+    "bigEndian": "Big endian",
+    "fileEditFailed": "Edit failed with message '{{error}}'."
 }
