@@ -9,6 +9,8 @@ use inspect::{
     inspect_data as inspect_data_bytes, inspect_text as inspect_text_bytes, DataInPosition,
     TextDataInPosition, DATA_INSPECTOR_LENGTH,
 };
+use launch::{request_open, PendingOpens};
+use recent::{recent_files_path, RecentFile, RecentFiles};
 use search::{SearchDirection, SearchOptions, SearchQuery, SearchResult};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -21,11 +23,25 @@ mod config;
 mod documents;
 mod history;
 mod inspect;
+mod launch;
 mod piece_table;
+mod recent;
 mod search;
 
 pub fn run() {
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let pending = PendingOpens::from_args(std::env::args_os().skip(1), &cwd);
+
     tauri::Builder::default()
+        // Registered first, as the plugin requires: a second launch passes its files to this
+        // instance instead of opening another window.
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            let paths = launch::file_args(
+                argv.into_iter().skip(1).map(Into::into),
+                std::path::Path::new(&cwd),
+            );
+            request_open(app, paths);
+        }))
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_shell::init())
@@ -33,6 +49,8 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(DocumentStore::default())
         .manage(SearchRegistry::default())
+        .manage(pending)
+        .manage(RecentFilesState::load())
         .invoke_handler(tauri::generate_handler![
             load_settings,
             save_settings,
@@ -50,10 +68,27 @@ pub fn run() {
             check_file_changed,
             reload_file,
             search_document,
-            cancel_search
+            cancel_search,
+            take_pending_open_files,
+            get_recent_files,
+            remove_recent_file,
+            clear_recent_files
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            // macOS sends files opened from Finder (or dropped on the Dock icon) as an event.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = _event {
+                let paths = urls
+                    .iter()
+                    .filter_map(|url| url.to_file_path().ok())
+                    .filter(|path| path.is_file())
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .collect();
+                request_open(_app, paths);
+            }
+        });
 }
 
 /// Runs blocking file I/O on the blocking thread pool so it doesn't stall the async runtime.
@@ -100,15 +135,22 @@ async fn save_settings(config: AppConfig) -> bool {
 ///
 /// If the file is already open, the existing document is returned.
 #[tauri::command]
-async fn open_file(path: String, store: State<'_, DocumentStore>) -> Result<DocumentInfo, String> {
+async fn open_file(
+    path: String,
+    store: State<'_, DocumentStore>,
+    recent: State<'_, RecentFilesState>,
+) -> Result<DocumentInfo, String> {
     let id = store.next_id();
+    let opened_path = path.clone();
     let document = run_blocking(move || {
         let path = PathBuf::from(&path);
         Document::open(id, &path).map_err(|e| format!("{}: {e}", path.display()))
     })
     .await?;
 
-    store.insert(document)
+    let info = store.insert(document)?;
+    recent.add(&opened_path);
+    Ok(info)
 }
 
 /// Closes an open document.
@@ -280,7 +322,9 @@ async fn save_file_as(
     id: DocumentId,
     path: String,
     store: State<'_, DocumentStore>,
+    recent: State<'_, RecentFilesState>,
 ) -> Result<SaveOutcome, String> {
+    let saved_path = path.clone();
     let path = PathBuf::from(path);
     if store.is_open_elsewhere(id, &path)? {
         return Err(format!(
@@ -294,6 +338,9 @@ async fn save_file_as(
             .map_err(|e| format!("{}: {e}", path.display()))
     })
     .await?;
+    if result == SaveResult::Saved {
+        recent.add(&saved_path);
+    }
     Ok(SaveOutcome::new(result, document))
 }
 
@@ -422,4 +469,62 @@ fn cancel_search(search_id: u64, registry: State<'_, SearchRegistry>) -> Result<
         flag.store(true, Ordering::Relaxed);
     }
     Ok(())
+}
+
+/// The recently opened files and the file they are stored in.
+struct RecentFilesState {
+    list: Mutex<RecentFiles>,
+    file: Option<PathBuf>,
+}
+
+impl RecentFilesState {
+    fn load() -> Self {
+        let file = recent_files_path();
+        let list = file.as_deref().map(RecentFiles::load).unwrap_or_default();
+        Self {
+            list: Mutex::new(list),
+            file,
+        }
+    }
+
+    /// Changes the list and saves it. A list that can't be saved still works for this run.
+    fn update(&self, change: impl FnOnce(&mut RecentFiles)) -> Vec<RecentFile> {
+        let Ok(mut list) = self.list.lock() else {
+            return Vec::new();
+        };
+        change(&mut list);
+        if let Some(file) = &self.file {
+            let _ = list.save(file);
+        }
+        list.entries()
+    }
+
+    fn add(&self, path: &str) {
+        self.update(|list| list.add(path));
+    }
+}
+
+/// Takes the files the operating system asked to open (command line, a second launch or macOS
+/// "open file" events). The `open-files-requested` event announces new ones.
+#[tauri::command]
+fn take_pending_open_files(pending: State<'_, PendingOpens>) -> Vec<String> {
+    pending.take()
+}
+
+/// Gets the recently opened files, most recent first.
+#[tauri::command]
+fn get_recent_files(recent: State<'_, RecentFilesState>) -> Vec<RecentFile> {
+    recent.update(|_| {})
+}
+
+/// Removes a file from the recent files.
+#[tauri::command]
+fn remove_recent_file(path: String, recent: State<'_, RecentFilesState>) -> Vec<RecentFile> {
+    recent.update(|list| list.remove(&path))
+}
+
+/// Clears the recent files.
+#[tauri::command]
+fn clear_recent_files(recent: State<'_, RecentFilesState>) -> Vec<RecentFile> {
+    recent.update(RecentFiles::clear)
 }

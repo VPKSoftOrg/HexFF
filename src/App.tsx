@@ -1,3 +1,4 @@
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import * as React from "react";
 import { useState } from "react";
@@ -15,20 +16,25 @@ import { useWindowStateSaver } from "./hooks/UseWindowStateListener";
 import { useTranslate } from "./localization/Localization";
 import { AppMenu } from "./menu/AppMenu";
 import { AppToolbar } from "./menu/AppToolbar";
-import { appMenuItems, type MenuKeys } from "./menu/MenuItems";
+import { appMenuItems, type MenuKeys, RECENT_FILE_KEY_PREFIX } from "./menu/MenuItems";
 import { appToolbarItems } from "./menu/ToolbarItems";
 import { selectFileToOpen, selectFileToSave } from "./utilities/app/Files";
 import { useSettings } from "./utilities/app/Settings";
 import {
     checkFileChanged,
+    clearRecentFiles,
     closeFile,
     type DocumentInfo,
     getOpenFiles,
+    getRecentFiles,
+    onOpenFilesRequested,
     openFile,
+    type RecentFile,
     reloadFile,
     type SaveOutcome,
     saveFile,
     saveFileAs,
+    takePendingOpenFiles,
 } from "./utilities/app/TauriWrappers";
 
 /** The macOS Cmd key takes the role of Ctrl on other platforms. */
@@ -47,6 +53,7 @@ const App = () => {
     const [openFiles, setOpenFiles] = useState<DocumentInfo[]>([]);
     const [activeFileId, setActiveFileId] = useState<number | null>(null);
     const [viewCommand, setViewCommand] = useState<HexViewCommand | null>(null);
+    const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
     const { translate, setLocale } = useTranslate();
     const { token } = useAntdToken();
     const { setTheme, updateBackround } = useAntdTheme();
@@ -89,6 +96,19 @@ const App = () => {
         },
         [notification, translate]
     );
+
+    // The backend adds files to the recent list when they are opened or saved as; read it again then.
+    const refreshRecentFiles = React.useCallback(async () => {
+        try {
+            setRecentFiles(await getRecentFiles());
+        } catch {
+            // The list is a convenience; without it the File menu just shows no recent files.
+        }
+    }, []);
+
+    React.useEffect(() => {
+        void refreshRecentFiles();
+    }, [refreshRecentFiles]);
 
     // The backend state may already exist, e.g. after a frontend reload.
     React.useEffect(() => {
@@ -137,6 +157,9 @@ const App = () => {
                 }
                 if (outcome.status === "saved") {
                     onDocumentChange(outcome.document);
+                    if (saveAs) {
+                        void refreshRecentFiles();
+                    }
                     return true;
                 }
                 return false;
@@ -147,7 +170,7 @@ const App = () => {
                 savesInProgress.current--;
             }
         },
-        [askOverwriteChanged, notification, onDocumentChange, showCannotSave, translate]
+        [askOverwriteChanged, notification, onDocumentChange, refreshRecentFiles, showCannotSave, translate]
     );
 
     /**
@@ -258,26 +281,74 @@ const App = () => {
         const unlisten = getCurrentWindow().onFocusChanged(({ payload: focused }) => {
             if (focused) {
                 void checkExternalChanges();
+                // Recent files may have been moved or deleted meanwhile.
+                void refreshRecentFiles();
             }
         });
         return () => {
             void unlisten.then(stop => stop());
         };
-    }, [checkExternalChanges]);
+    }, [checkExternalChanges, refreshRecentFiles]);
+
+    /**
+     * Opens files and makes the last one that opened the active tab. A file that fails to open is
+     * reported and doesn't stop the others.
+     */
+    const openPaths = React.useCallback(
+        async (paths: string[]) => {
+            let lastOpened: number | undefined;
+            for (const path of paths) {
+                try {
+                    lastOpened = (await openFile(path)).id;
+                } catch (error) {
+                    notification("error", translate("fileOpenFailed", undefined, { error }));
+                }
+            }
+            await refreshOpenFiles(lastOpened);
+            await refreshRecentFiles();
+        },
+        [notification, refreshOpenFiles, refreshRecentFiles, translate]
+    );
 
     // Shows the open file dialog and opens the selected file.
     const openFileDialog = React.useCallback(async () => {
         try {
             const filePath = await selectFileToOpen(translate("allFiles"));
-            if (filePath === null) {
-                return;
+            if (filePath !== null) {
+                await openPaths([filePath]);
             }
-            const document = await openFile(filePath);
-            await refreshOpenFiles(document.id);
         } catch (error) {
             notification("error", translate("fileOpenFailed", undefined, { error }));
         }
-    }, [notification, refreshOpenFiles, translate]);
+    }, [notification, openPaths, translate]);
+
+    // Open the files the operating system asked for: command-line arguments at startup, a second
+    // launch, or macOS "open file" events. The event announces files queued after startup.
+    React.useEffect(() => {
+        const openPending = async () => {
+            const paths = await takePendingOpenFiles();
+            if (paths.length > 0) {
+                await openPaths(paths);
+            }
+        };
+        void openPending();
+        const unlisten = onOpenFilesRequested(() => void openPending());
+        return () => {
+            void unlisten.then(stop => stop());
+        };
+    }, [openPaths]);
+
+    // Open files dropped on the window.
+    React.useEffect(() => {
+        const unlisten = getCurrentWebview().onDragDropEvent(event => {
+            if (event.payload.type === "drop" && event.payload.paths.length > 0) {
+                void openPaths(event.payload.paths);
+            }
+        });
+        return () => {
+            void unlisten.then(stop => stop());
+        };
+    }, [openPaths]);
 
     // File shortcuts work wherever the focus is: Ctrl/Cmd+O, Ctrl/Cmd+S and Ctrl/Cmd+Shift+S.
     React.useEffect(() => {
@@ -328,14 +399,25 @@ const App = () => {
 
     // Generate the menu items with the current locale.
     const menuItems = React.useMemo(() => {
-        return appMenuItems(translate);
-    }, [translate]);
+        return appMenuItems(translate, recentFiles);
+    }, [recentFiles, translate]);
 
     // Handle menu item and toolbar item clicks.
     const onMenuItemClick = React.useCallback(
         (key: unknown) => {
             const keyValue = key as MenuKeys;
+            if (keyValue.startsWith(RECENT_FILE_KEY_PREFIX)) {
+                const recent = recentFiles[Number(keyValue.slice(RECENT_FILE_KEY_PREFIX.length))];
+                if (recent) {
+                    void openPaths([recent.path]);
+                }
+                return;
+            }
             switch (keyValue) {
+                case "clearRecentMenu": {
+                    void clearRecentFiles().then(setRecentFiles);
+                    break;
+                }
                 case "exitMenu": {
                     void closeWindow();
                     break;
@@ -392,7 +474,7 @@ const App = () => {
                 }
             }
         },
-        [closeWindow, openFileDialog, saveDocument]
+        [closeWindow, openFileDialog, openPaths, recentFiles, saveDocument]
     );
 
     // Close the preferences popup.

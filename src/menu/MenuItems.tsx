@@ -1,5 +1,6 @@
 import {
     faCircleQuestion,
+    faClockRotateLeft,
     faDoorOpen,
     faFile,
     faFloppyDisk,
@@ -15,9 +16,37 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { LocalizeFunction } from "../localization/Localization";
+import type { RecentFile } from "../utilities/app/TauriWrappers";
 import type { MenuItems } from "./AppMenu";
 
-export const appMenuItems = (localize?: LocalizeFunction): MenuItems => [
+/** The menu key prefix of the recent file entries; the rest of the key is the index in the list. */
+export const RECENT_FILE_KEY_PREFIX = "recent:";
+
+/** The "Open recent" submenu: the recent files (missing ones disabled) and a command to clear the list. */
+const recentFilesMenu = (recentFiles: RecentFile[], localize?: LocalizeFunction): MenuItems[number] => ({
+    key: "recentMenu",
+    label: localize?.("openRecent") ?? "Open recent",
+    icon: <FontAwesomeIcon icon={faClockRotateLeft} />,
+    disabled: recentFiles.length === 0,
+    children: [
+        ...recentFiles.map((file, index) => ({
+            key: `${RECENT_FILE_KEY_PREFIX}${index}`,
+            label: (
+                <span title={file.path}>
+                    {file.exists ? file.name : `${file.name} (${localize?.("fileMissing") ?? "missing"})`}
+                </span>
+            ),
+            disabled: !file.exists,
+        })),
+        { type: "divider" as const },
+        {
+            key: "clearRecentMenu",
+            label: localize?.("clearRecentFiles") ?? "Clear recent files",
+        },
+    ],
+});
+
+export const appMenuItems = (localize?: LocalizeFunction, recentFiles: RecentFile[] = []): MenuItems => [
     {
         key: "fileMenu",
         label: localize?.("fileMenu") ?? "File",
@@ -28,6 +57,7 @@ export const appMenuItems = (localize?: LocalizeFunction): MenuItems => [
                 label: withShortcut(localize?.("openFile") ?? "Open file", shortcutText("O")),
                 icon: <FontAwesomeIcon icon={faFolderOpen} />,
             },
+            recentFilesMenu(recentFiles, localize),
             {
                 key: "saveMenu",
                 label: withShortcut(localize?.("save") ?? "Save", shortcutText("S")),
@@ -139,7 +169,10 @@ export type MenuKeys =
     | "saveAsMenu"
     | "findMenu"
     | "findNextMenu"
-    | "findPreviousMenu";
+    | "findPreviousMenu"
+    | "recentMenu"
+    | "clearRecentMenu"
+    | `${typeof RECENT_FILE_KEY_PREFIX}${number}`;
 
 const isMac = /mac/i.test(navigator.userAgent);
 
