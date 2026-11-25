@@ -53,7 +53,7 @@ type WindowTitleProps = {
  * @param param0 The component props: {@link WindowTitleProps}.
  * @returns A component.
  */
-const WindowTitle = ({
+let WindowTitle = ({
     className, //
     title,
     maximizeTitle = "Maximize",
@@ -132,7 +132,7 @@ const WindowTitle = ({
     );
 };
 
-const StyledTitle = styled(WindowTitle)`
+WindowTitle = styled(WindowTitle)`
     height: 32px;
     background: ${p => (p.darkMode ? (p.colorConfigDark ?? titleColorConfigDark)?.titleBackground : (p.colorConfigLight ?? titleColorConfigLight)?.titleBackground)};
     color: ${p => (p.darkMode ? (p.colorConfigDark ?? titleColorConfigDark)?.textColor : (p.colorConfigLight ?? titleColorConfigLight)?.textColor)};
@@ -238,4 +238,4 @@ const windowMinimize = (fill: string, stroke?: string) => {
 };
 
 export type { TitleColorConfig };
-export { StyledTitle, titleColorConfigDark, titleColorConfigLight };
+export { titleColorConfigDark, titleColorConfigLight, WindowTitle };

@@ -20,7 +20,7 @@ type TooltipObjectButtonProps<T> = {
  * @param param0 The component props: {@link TooltipObjectButtonProps}.
  * @returns A component.
  */
-const TooltipObjectButtonPropsComponent = <T,>({
+let TooltipObjectButton = <T,>({
     className, //
     icon,
     objectData,
@@ -45,7 +45,7 @@ const TooltipObjectButtonPropsComponent = <T,>({
     );
 };
 
-const TooltipObjectButton = styled(TooltipObjectButtonPropsComponent)`
+TooltipObjectButton = styled(TooltipObjectButton)`
     // Add style(s) here
 `;
 

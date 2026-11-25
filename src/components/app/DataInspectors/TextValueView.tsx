@@ -21,7 +21,7 @@ type TextValueViewProps = {
  * @param param0 The component props: {@link TextValueViewProps}.
  * @returns A component.
  */
-const TextValueViewComponent = ({
+let TextValueView = ({
     className, //
     rows,
     value,
@@ -104,7 +104,7 @@ const getCharCode = (
     }
 };
 
-const TextValueView = styled(TextValueViewComponent)`
+TextValueView = styled(TextValueView)`
     width: 370px;
     flex-direction: column;
     .TextValueTable {

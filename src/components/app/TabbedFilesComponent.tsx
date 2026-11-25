@@ -37,7 +37,7 @@ type TabsEditHandler = NonNullable<TabsProps["onEdit"]>;
  * @param param0 The component props: {@link TabbedFilesProps}.
  * @returns A component.
  */
-export const TabbedFilesComponent = ({
+let TabbedFiles = ({
     className, //
     openFiles,
     activeFileId,
@@ -98,7 +98,7 @@ export const TabbedFilesComponent = ({
     );
 };
 
-const TabbedFiles = styled(TabbedFilesComponent)`
+TabbedFiles = styled(TabbedFiles)`
     width: 100%;
     height: 100%;
     min-height: 0;

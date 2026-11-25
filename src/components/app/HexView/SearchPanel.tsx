@@ -70,7 +70,7 @@ let nextSearchId = 1;
  * @param param0 The component props: {@link SearchPanelProps}.
  * @returns A component.
  */
-const SearchPanelComponent = ({
+let SearchPanel = ({
     className, //
     fileId,
     fileSize,
@@ -345,7 +345,7 @@ const SearchPanelComponent = ({
     );
 };
 
-const SearchPanel = styled(SearchPanelComponent)`
+SearchPanel = styled(SearchPanel)`
     display: flex;
     flex-direction: column;
     gap: 8px;

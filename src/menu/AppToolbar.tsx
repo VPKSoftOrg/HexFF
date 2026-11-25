@@ -31,7 +31,7 @@ const isToolBarSeparator = <T,>(item: ToolBarItem<T> | ToolBarSeparator): item i
  * @param param0 The component props {@link AppToolbarProps}.
  * @returns A component.
  */
-const AppToolbarComponent = <T,>({
+let AppToolbar = <T,>({
     className, //
     toolBarItems,
     onItemClick,
@@ -65,7 +65,7 @@ const AppToolbarComponent = <T,>({
     );
 };
 
-const AppToolbar = styled(AppToolbarComponent)`
+AppToolbar = styled(AppToolbar)`
     display: flex;
     flex-direction: row;
     gap: 4px;
