@@ -30,5 +30,11 @@
     "bytes": "tavua",
     "hexadecimal": "Heksadesimaali",
     "decimal": "Desimaali",
-    "invalidOffset": "Anna sijainti väliltä {{min}}–{{max}}."
+    "invalidOffset": "Anna sijainti väliltä {{min}}–{{max}}.",
+    "editMenu": "Muokkaa",
+    "undo": "Kumoa",
+    "redo": "Tee uudelleen",
+    "toggleInsertMode": "Lisäys / korvaus",
+    "insertModeShort": "LIS",
+    "overwriteModeShort": "KOR"
 }

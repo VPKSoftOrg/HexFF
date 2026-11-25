@@ -30,5 +30,11 @@
     "bytes": "bytes",
     "hexadecimal": "Hexadecimal",
     "decimal": "Decimal",
-    "invalidOffset": "Enter an offset from {{min}} to {{max}}."
+    "invalidOffset": "Enter an offset from {{min}} to {{max}}.",
+    "editMenu": "Edit",
+    "undo": "Undo",
+    "redo": "Redo",
+    "toggleInsertMode": "Insert / overwrite",
+    "insertModeShort": "INS",
+    "overwriteModeShort": "OVR"
 }

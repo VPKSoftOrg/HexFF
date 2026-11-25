@@ -21,6 +21,8 @@ export type TabbedFilesProps = {
     onCloseFile: (id: number) => void;
     /** The latest command for the active view. */
     command: HexViewCommand | null;
+    /** Occurs when an edit, undo or redo changed a document. */
+    onDocumentChange: (document: DocumentInfo) => void;
     notification: (
         type: NotificationType,
         title: string | Error | null | undefined,
@@ -42,12 +44,14 @@ export const TabbedFilesComponent = ({
     onActiveFileChange,
     onCloseFile,
     command,
+    onDocumentChange,
     notification,
 }: TabbedFilesProps) => {
     const items = React.useMemo(() => {
         return openFiles.map(f => {
             return {
-                label: f.name,
+                // A dot marks unsaved changes.
+                label: f.modified ? `${f.name} ●` : f.name,
                 key: f.id.toString(),
                 closable: true,
                 children: (
@@ -57,11 +61,12 @@ export const TabbedFilesComponent = ({
                         fileSize={f.size}
                         isActive={f.id === activeFileId}
                         command={command}
+                        onDocumentChange={onDocumentChange}
                     />
                 ),
             };
         });
-    }, [activeFileId, command, notification, openFiles]);
+    }, [activeFileId, command, notification, onDocumentChange, openFiles]);
 
     const onTabChange = React.useCallback(
         (key: string) => {

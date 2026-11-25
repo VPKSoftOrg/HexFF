@@ -21,14 +21,20 @@ export const initialHexViewState: HexViewState = { cursor: 0, anchor: null, topR
  */
 export type ByteRange = { start: number; end: number };
 
-/** Gets the number of grid rows needed for a file. */
-export const totalRows = (fileSize: number) => Math.ceil(fileSize / BYTES_PER_ROW);
+/**
+ * Gets the number of grid rows needed for a file, including the row that holds the append position
+ * (the position just past the last byte, where new bytes can be added).
+ */
+export const totalRows = (fileSize: number) => Math.floor(fileSize / BYTES_PER_ROW) + 1;
 
 /** Gets the largest valid top row so that the last page is full when possible. */
 export const maxTopRow = (fileSize: number, visibleRows: number) => Math.max(0, totalRows(fileSize) - visibleRows);
 
-/** Gets the largest valid cursor offset. */
-export const maxCursor = (fileSize: number) => Math.max(0, fileSize - 1);
+/** Gets the largest valid cursor offset: the append position just past the last byte. */
+export const maxCursor = (fileSize: number) => fileSize;
+
+/** Gets the offset of the last byte, or 0 for an empty file. */
+export const lastByteOffset = (fileSize: number) => Math.max(0, fileSize - 1);
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
@@ -81,13 +87,16 @@ export const scrollTo = (state: HexViewState, topRow: number, fileSize: number, 
 };
 
 /**
- * Gets the selected range, or `null` when nothing is selected.
+ * Gets the selected range of existing bytes, or `null` when nothing is selected.
+ * The append position is never part of a selection.
  */
-export const selectionRange = (state: HexViewState): ByteRange | null => {
+export const selectionRange = (state: HexViewState, fileSize: number): ByteRange | null => {
     if (state.anchor === null) {
         return null;
     }
-    return { start: Math.min(state.anchor, state.cursor), end: Math.max(state.anchor, state.cursor) };
+    const start = Math.min(state.anchor, state.cursor);
+    const end = Math.min(Math.max(state.anchor, state.cursor), fileSize - 1);
+    return start <= end ? { start, end } : null;
 };
 
 /** The modifier keys that affect navigation. */

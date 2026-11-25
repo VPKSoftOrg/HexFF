@@ -10,8 +10,22 @@ type DocumentInfo = {
     path: string;
     /** The file name without the directory. */
     name: string;
-    /** The file size in bytes. */
+    /** The size of the edited content in bytes. */
     size: number;
+    /** Whether the content differs from the file on disk. */
+    modified: boolean;
+    can_undo: boolean;
+    can_redo: boolean;
+};
+
+/**
+ * The result of undo or redo.
+ */
+type UndoResult = {
+    /** The updated document. */
+    document: DocumentInfo;
+    /** The offset of the undone or redone change, or `null` if there was nothing to undo or redo. */
+    offset: number | null;
 };
 
 /**
@@ -130,5 +144,29 @@ const inspectData = (id: number, offset: number) => invokeCommand<DataInPosition
 const inspectText = (id: number, offset: number, length: number) =>
     invokeCommand<TextDataInPosition>("inspect_text", { id, offset, length });
 
-export type { DataInPositionResult, DocumentInfo, TextDataInPosition };
-export { closeFile, getOpenFiles, inspectData, inspectText, openFile, readRange };
+/**
+ * Replaces bytes in an open document. Overwriting, inserting and deleting are all replacements.
+ * @param id The document identifier.
+ * @param offset The offset of the first replaced byte.
+ * @param removeLength The number of bytes to remove; shortened at the end of the content.
+ * @param data The bytes to put in their place.
+ * @param continueStep `true` to undo this edit together with the previous one (e.g. consecutive keystrokes).
+ * @returns The updated document.
+ */
+const editDocument = (id: number, offset: number, removeLength: number, data: number[], continueStep: boolean) =>
+    invokeCommand<DocumentInfo>("edit_document", { id, offset, removeLength, data, continueStep });
+
+/**
+ * Undoes the latest edit step of an open document.
+ * @param id The document identifier.
+ */
+const undoEdit = (id: number) => invokeCommand<UndoResult>("undo_edit", { id });
+
+/**
+ * Redoes the latest undone edit step of an open document.
+ * @param id The document identifier.
+ */
+const redoEdit = (id: number) => invokeCommand<UndoResult>("redo_edit", { id });
+
+export type { DataInPositionResult, DocumentInfo, TextDataInPosition, UndoResult };
+export { closeFile, editDocument, getOpenFiles, inspectData, inspectText, openFile, readRange, redoEdit, undoEdit };

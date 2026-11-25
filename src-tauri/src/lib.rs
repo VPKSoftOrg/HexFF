@@ -14,7 +14,9 @@ use tauri::{ipc::Response, State};
 
 mod config;
 mod documents;
+mod history;
 mod inspect;
+mod piece_table;
 
 pub fn run() {
     tauri::Builder::default()
@@ -32,7 +34,10 @@ pub fn run() {
             get_open_files,
             read_range,
             inspect_data,
-            inspect_text
+            inspect_text,
+            edit_document,
+            undo_edit,
+            redo_edit
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -153,4 +158,62 @@ async fn inspect_text(
 
     let bytes = read_document(&store, id, offset, length).await?;
     Ok(inspect_text_bytes(&bytes))
+}
+
+/// The result of undo or redo: the updated document and the offset of the change, if there was one.
+#[derive(serde::Serialize)]
+struct UndoResult {
+    document: DocumentInfo,
+    offset: Option<u64>,
+}
+
+/// Runs `action` on an open document and stores its updated information.
+async fn change_document<T: Send + 'static>(
+    store: &DocumentStore,
+    id: DocumentId,
+    action: impl FnOnce(&mut Document) -> Result<T, String> + Send + 'static,
+) -> Result<(T, DocumentInfo), String> {
+    let document = store.get(id)?;
+    let (result, info) = run_blocking(move || {
+        let mut document = lock_document(&document)?;
+        let result = action(&mut document)?;
+        Ok((result, document.info()))
+    })
+    .await?;
+    store.update_info(&info)?;
+    Ok((result, info))
+}
+
+/// Replaces `remove_length` bytes at `offset` with `data` in an open document.
+///
+/// Overwriting, inserting and deleting are all replacements. With `continue_step`, the edit is
+/// undone together with the previous one (e.g. consecutive keystrokes).
+#[tauri::command]
+async fn edit_document(
+    id: DocumentId,
+    offset: u64,
+    remove_length: u64,
+    data: Vec<u8>,
+    continue_step: bool,
+    store: State<'_, DocumentStore>,
+) -> Result<DocumentInfo, String> {
+    let (_, info) = change_document(&store, id, move |document| {
+        document.edit(offset, remove_length, &data, continue_step)
+    })
+    .await?;
+    Ok(info)
+}
+
+/// Undoes the latest edit step of an open document.
+#[tauri::command]
+async fn undo_edit(id: DocumentId, store: State<'_, DocumentStore>) -> Result<UndoResult, String> {
+    let (offset, document) = change_document(&store, id, |document| Ok(document.undo())).await?;
+    Ok(UndoResult { document, offset })
+}
+
+/// Redoes the latest undone edit step of an open document.
+#[tauri::command]
+async fn redo_edit(id: DocumentId, store: State<'_, DocumentStore>) -> Result<UndoResult, String> {
+    let (offset, document) = change_document(&store, id, |document| Ok(document.redo())).await?;
+    Ok(UndoResult { document, offset })
 }

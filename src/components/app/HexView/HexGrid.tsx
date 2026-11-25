@@ -2,7 +2,7 @@ import classNames from "classnames";
 import * as React from "react";
 import { styled } from "styled-components";
 import type { CommonProps } from "../../Types";
-import { BYTES_PER_ROW, type ByteRange, formatOffset } from "./HexNavigation";
+import { BYTES_PER_ROW, type ByteRange, formatOffset, totalRows } from "./HexNavigation";
 
 /** The height of one grid row in pixels. Rows must not be taller than this for the row count to be right. */
 export const ROW_HEIGHT = 22;
@@ -25,6 +25,8 @@ type HexGridProps = {
     visibleRows: number;
     data: LoadedBytes | null;
     cursor: number;
+    /** `1` when the high nibble of the cursor byte has been typed and the low nibble is next. */
+    cursorNibble: 0 | 1;
     selection: ByteRange | null;
     activeColumn: HexColumn;
     focused: boolean;
@@ -68,6 +70,7 @@ const HexGridComponent = ({
     visibleRows,
     data,
     cursor,
+    cursorNibble,
     selection,
     activeColumn,
     focused,
@@ -125,7 +128,7 @@ const HexGridComponent = ({
     const offsetStyle = React.useMemo(() => ({ width: `${formatOffset(0, fileSize).length + 2}ch` }), [fileSize]);
 
     const rows: React.ReactNode[] = [];
-    const lastRow = Math.min(topRow + visibleRows, Math.ceil(fileSize / BYTES_PER_ROW));
+    const lastRow = Math.min(topRow + visibleRows, totalRows(fileSize));
 
     for (let row = topRow; row < lastRow; row++) {
         const rowOffset = row * BYTES_PER_ROW;
@@ -134,13 +137,16 @@ const HexGridComponent = ({
 
         for (let column = 0; column < BYTES_PER_ROW; column++) {
             const offset = rowOffset + column;
-            if (offset >= fileSize) {
-                hexCells.push(<span key={offset} className="HexCell" />);
+            const groupStart = column === BYTES_PER_ROW / 2;
+            if (offset > fileSize) {
+                hexCells.push(<span key={offset} className={classNames("HexCell", { GroupStart: groupStart })} />);
                 textCells.push(<span key={offset} className="TextCell" />);
                 continue;
             }
 
-            const value = byteAt(offset);
+            // The cell at `fileSize` is the append position: empty, but the cursor can be placed there.
+            const isAppend = offset === fileSize;
+            const value = isAppend ? undefined : byteAt(offset);
             const isCursor = offset === cursor;
             const isSelected = selection !== null && offset >= selection.start && offset <= selection.end;
             const cellClass = (cellColumn: HexColumn) =>
@@ -148,8 +154,20 @@ const HexGridComponent = ({
                     Selected: isSelected,
                     Cursor: isCursor && cellColumn === activeColumn,
                     CursorShadow: isCursor && cellColumn !== activeColumn,
-                    GroupStart: column === BYTES_PER_ROW / 2 && cellColumn === "hex",
+                    GroupStart: groupStart && cellColumn === "hex",
+                    AppendCell: isAppend,
                 });
+
+            let hexText: React.ReactNode = value === undefined ? "" : hexDigits(value, upperCase);
+            if (isCursor && cursorNibble === 1 && value !== undefined) {
+                const digits = hexDigits(value, upperCase);
+                hexText = (
+                    <>
+                        {digits[0]}
+                        <span className="ActiveNibble">{digits[1]}</span>
+                    </>
+                );
+            }
 
             hexCells.push(
                 <span
@@ -158,7 +176,7 @@ const HexGridComponent = ({
                     data-offset={offset}
                     data-column="hex"
                 >
-                    {value === undefined ? "" : hexDigits(value, upperCase)}
+                    {hexText}
                 </span>
             );
             textCells.push(
@@ -268,6 +286,10 @@ const HexGrid = styled(HexGridComponent)`
     &.Focused .Cursor {
         background-color: var(--hex-cursor-bg);
         color: var(--hex-cursor-color);
+    }
+    .ActiveNibble {
+        text-decoration: underline;
+        text-underline-offset: 3px;
     }
 `;
 
