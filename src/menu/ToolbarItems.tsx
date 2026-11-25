@@ -1,4 +1,4 @@
-import { faDoorOpen, faFolderOpen, faGear, faInfo } from "@fortawesome/free-solid-svg-icons";
+import { faDoorOpen, faFolderOpen, faGear, faInfo, faLocationCrosshairs } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { LocalizeFunction } from "../localization/Localization";
 import type { ToolBarItem, ToolBarSeparator } from "./AppToolbar";
@@ -30,5 +30,11 @@ export const appToolbarItems = (localize?: LocalizeFunction): (ToolBarItem<MenuK
         title: localize?.("openFile") ?? "Open file",
         tooltipTitle: localize?.("openFile") ?? "Open file",
         clickActionObject: "openFile",
+    },
+    {
+        icon: <FontAwesomeIcon icon={faLocationCrosshairs} />,
+        title: localize?.("goToOffset") ?? "Go to offset",
+        tooltipTitle: localize?.("goToOffset") ?? "Go to offset",
+        clickActionObject: "goToOffsetMenu",
     },
 ];

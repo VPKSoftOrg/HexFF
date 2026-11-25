@@ -5,7 +5,7 @@ import { styled } from "styled-components";
 import type { NotificationType } from "../../hooks/UseNotify";
 import type { DocumentInfo } from "../../utilities/app/TauriWrappers";
 import type { CommonProps } from "../Types";
-import { HexEditView } from "./DataInspectors/HexEditView";
+import { HexView, type HexViewCommand } from "./HexView/HexView";
 
 /**
  * The props for the {@link TabbedFiles} component.
@@ -19,6 +19,8 @@ export type TabbedFilesProps = {
     onActiveFileChange: (id: number) => void;
     /** Occurs when the user closes a tab. */
     onCloseFile: (id: number) => void;
+    /** The latest command for the active view. */
+    command: HexViewCommand | null;
     notification: (
         type: NotificationType,
         title: string | Error | null | undefined,
@@ -39,6 +41,7 @@ export const TabbedFilesComponent = ({
     activeFileId,
     onActiveFileChange,
     onCloseFile,
+    command,
     notification,
 }: TabbedFilesProps) => {
     const items = React.useMemo(() => {
@@ -48,17 +51,17 @@ export const TabbedFilesComponent = ({
                 key: f.id.toString(),
                 closable: true,
                 children: (
-                    <HexEditView //
+                    <HexView //
                         notification={notification}
-                        rows={16}
                         fileId={f.id}
                         fileSize={f.size}
                         isActive={f.id === activeFileId}
+                        command={command}
                     />
                 ),
             };
         });
-    }, [activeFileId, notification, openFiles]);
+    }, [activeFileId, command, notification, openFiles]);
 
     const onTabChange = React.useCallback(
         (key: string) => {
@@ -92,6 +95,17 @@ export const TabbedFilesComponent = ({
 const TabbedFiles = styled(TabbedFilesComponent)`
     width: 100%;
     height: 100%;
+    min-height: 0;
+
+    // Let the active tab fill the remaining height so the hex grid can size itself.
+    .ant-tabs-content-holder {
+        flex: 1;
+        min-height: 0;
+    }
+    .ant-tabs-content,
+    .ant-tabs-tabpane-active {
+        height: 100%;
+    }
 `;
 
 export { TabbedFiles };

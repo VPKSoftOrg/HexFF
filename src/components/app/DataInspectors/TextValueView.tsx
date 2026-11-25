@@ -6,7 +6,7 @@ import { styled } from "styled-components";
 import { useTranslate } from "../../../localization/Localization";
 import type { TextDataInPosition } from "../../../utilities/app/TauriWrappers";
 import { CharacterMode, type CommonProps, encodingLookupOptions } from "../../Types";
-import { columns } from "./HexEditView";
+import { BYTES_PER_ROW as columns } from "../HexView/HexNavigation";
 
 /**
  * The props for the {@link TextValueView} component.

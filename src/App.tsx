@@ -3,7 +3,8 @@ import * as React from "react";
 import { useState } from "react";
 import { styled } from "styled-components";
 import "./App.css";
-import { TabbedFilesComponent } from "./components/app/TabbedFilesComponent";
+import type { HexViewCommand } from "./components/app/HexView/HexView";
+import { TabbedFiles } from "./components/app/TabbedFilesComponent";
 import { StyledTitle } from "./components/app/WindowTitle";
 import { AboutPopup } from "./components/popups/AboutPopup";
 import { PreferencesPopup } from "./components/popups/PreferencesPopup";
@@ -31,6 +32,7 @@ const App = () => {
     const [contextHolder, notification] = useNotify();
     const [openFiles, setOpenFiles] = useState<DocumentInfo[]>([]);
     const [activeFileId, setActiveFileId] = useState<number | null>(null);
+    const [viewCommand, setViewCommand] = useState<HexViewCommand | null>(null);
     const { translate, setLocale } = useTranslate();
     const { token } = useAntdToken();
     const { setTheme, updateBackround } = useAntdTheme();
@@ -126,6 +128,10 @@ const App = () => {
                     setPreferencesVisible(true);
                     break;
                 }
+                case "goToOffsetMenu": {
+                    setViewCommand(current => ({ type: "goToOffset", seq: (current?.seq ?? 0) + 1 }));
+                    break;
+                }
                 case "openFile": {
                     void selectFileToOpen(translate("allFiles"))
                         .then((filePath: string | null) => {
@@ -210,12 +216,13 @@ const App = () => {
                     onItemClick={onMenuItemClick}
                 />
             </div>
-            <div>
-                <TabbedFilesComponent //
+            <div className="AppMain">
+                <TabbedFiles //
                     openFiles={openFiles}
                     activeFileId={activeFileId}
                     onActiveFileChange={setActiveFileId}
                     onCloseFile={onCloseFile}
+                    command={viewCommand}
                     notification={notification}
                 />
             </div>
