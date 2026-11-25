@@ -6,7 +6,7 @@ import * as React from "react";
  */
 type ThemeContextPayload = {
     setTheme: ((value: "dark" | "light") => void) | null;
-    updateBackround: ((token: GlobalToken) => void) | null;
+    updateBackground: ((token: GlobalToken) => void) | null;
     antdTheme: "dark" | "light";
 };
 
@@ -15,7 +15,7 @@ type ThemeContextPayload = {
  */
 const ThemeContext = React.createContext<ThemeContextPayload>({
     setTheme: null,
-    updateBackround: null,
+    updateBackground: null,
     antdTheme: "light",
 });
 
@@ -42,7 +42,7 @@ const AntdThemeProvider = ({ children }: Props) => {
 
     // Updates the background colors of the body and root elements.
     // Combine this with useEffect hook using useToken hook's return value as a dependency.
-    const updateBackround = React.useCallback(
+    const updateBackground = React.useCallback(
         (token: GlobalToken) => {
             const body = document.querySelector("body");
             if (body) {
@@ -64,7 +64,7 @@ const AntdThemeProvider = ({ children }: Props) => {
                 algorithm: antdTheme === "dark" ? theme.darkAlgorithm : theme.defaultAlgorithm,
             }}
         >
-            <ThemeContext.Provider value={{ setTheme, updateBackround, antdTheme }}>{children}</ThemeContext.Provider>
+            <ThemeContext.Provider value={{ setTheme, updateBackground, antdTheme }}>{children}</ThemeContext.Provider>
         </ConfigProvider>
     );
 };

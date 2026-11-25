@@ -1,7 +1,7 @@
 {
     "name": "hex_ff",
     "private": true,
-    "version": "0.1.0",
+    "version": "0.8.1",
     "type": "module",
     "engines": {
         "node": ">=26"
@@ -15,7 +15,9 @@
         "release": "tauri build",
         "lint": "biome lint && biome format && biome check",
         "lint-fix": "biome lint --write && biome format --write && biome check --write",
-        "test": "vitest run"
+        "test": "vitest run",
+        "version": "node scripts/sync-version.mjs && git add src-tauri/Cargo.toml Cargo.lock",
+        "sync-version": "node scripts/sync-version.mjs"
     },
     "dependencies": {
         "@fortawesome/fontawesome-svg-core": "^7.3.1",

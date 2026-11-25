@@ -30,9 +30,9 @@ let ByteValueView = ({
         () => Object.keys(value ?? dataInPositionResultDefault).filter(f => f.includes(bigEndian ? "_be" : "_le")),
         [bigEndian, value]
     );
-    let componentKey = 0;
 
     const dataCells = React.useMemo(() => {
+        let componentKey = 0;
         const result: JSX.Element[] = [];
 
         for (const key of keys) {
@@ -53,7 +53,7 @@ let ByteValueView = ({
         }
 
         return result;
-    }, [componentKey, keys, value]);
+    }, [keys, value]);
 
     return (
         <table //

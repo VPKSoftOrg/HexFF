@@ -74,9 +74,7 @@ const useTauriUpdater = (passive: boolean, retryCount: number = 5): TauriUpdater
                 shouldRetry.current = false;
             })
             .catch(error => {
-                // eslint-disable-next-line unicorn/no-useless-undefined
                 setShouldUpdate(undefined);
-                // eslint-disable-next-line unicorn/no-useless-undefined
                 setManifest(undefined);
                 setCheckError(true);
                 retries.current++;
