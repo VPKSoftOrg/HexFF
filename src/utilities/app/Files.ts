@@ -22,11 +22,12 @@ const selectFileToOpen = async (extensionName: string) => {
 /**
  * Displays a save file dialog and returns the file name.
  * @param extensionName The name of the file extension to display to the user via the open file dialog.
- * @param extension The file extension used in the open file dialog.
+ * @param defaultPath The file path the dialog starts with.
  * @returns The user specified file name as string or null if the dialog was canceled.
  */
-const selectFileToSave = async (extensionName: string) => {
+const selectFileToSave = async (extensionName: string, defaultPath?: string) => {
     const filePath = await save({
+        defaultPath,
         filters: [
             {
                 name: extensionName,

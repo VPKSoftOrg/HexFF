@@ -36,5 +36,19 @@
     "redo": "Tee uudelleen",
     "toggleInsertMode": "Lisäys / korvaus",
     "insertModeShort": "LIS",
-    "overwriteModeShort": "KOR"
+    "overwriteModeShort": "KOR",
+    "save": "Tallenna",
+    "saveAs": "Tallenna nimellä...",
+    "dontSave": "Älä tallenna",
+    "saveChangesTitle": "Tallentamattomia muutoksia",
+    "saveChangesQuestion": "Haluatko tallentaa näiden tiedostojen muutokset?",
+    "fileChangedTitle": "Tiedosto muuttui levyllä",
+    "overwriteChangedQuestion": "Toinen ohjelma muutti tiedostoa {{name}}. Korvataanko se sinun versiollasi?",
+    "overwrite": "Korvaa",
+    "reloadQuestion": "Toinen ohjelma muutti tiedostoa {{name}}. Ladataanko se uudelleen?",
+    "reloadModifiedQuestion": "Toinen ohjelma muutti tiedostoa {{name}}. Ladataanko se uudelleen? Tallentamattomat muutokset menetetään.",
+    "reload": "Lataa uudelleen",
+    "keep": "Ohita",
+    "cannotSaveTitle": "Tiedostoa ei voi tallentaa",
+    "changedInPlaceMessage": "Toinen ohjelma kirjoitti tiedoston {{name}} uudelleen sen ollessa auki, joten muuttamattomien osien versiotasi ei voi enää lukea eikä muutoksiasi voi tallentaa. Lataa tiedosto uudelleen nähdäksesi sen nykyisen sisällön."
 }

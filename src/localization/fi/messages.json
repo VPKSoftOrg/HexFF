@@ -8,5 +8,6 @@
     "couldNotGetOpenedFiles": "Avattuja tiedostoja ei saatu haettua virheellä: '{{error}}'.",
     "litleEndian": "Nouseva tavujärjestys",
     "bigEndian": "Laskeva tavujärjestys",
-    "fileEditFailed": "Muokkaus epäonnistui virheellä: '{{error}}'."
+    "fileEditFailed": "Muokkaus epäonnistui virheellä: '{{error}}'.",
+    "fileSaveFailed": "Tiedoston tallennus epäonnistui virheellä: '{{error}}'."
 }

@@ -127,7 +127,9 @@ impl History {
     }
 
     /// Marks the current state as saved.
-    #[allow(dead_code)] // Used by saving (next phase) and the tests.
+    /// Saving currently starts a new history instead (see `Document::write_to`); this keeps the
+    /// modified tracking ready for saves that keep the undo steps.
+    #[allow(dead_code)]
     pub fn mark_saved(&mut self) {
         self.saved_id = self.current_id();
     }

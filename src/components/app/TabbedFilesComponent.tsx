@@ -59,6 +59,7 @@ export const TabbedFilesComponent = ({
                         notification={notification}
                         fileId={f.id}
                         fileSize={f.size}
+                        generation={f.generation}
                         isActive={f.id === activeFileId}
                         command={command}
                         onDocumentChange={onDocumentChange}

@@ -2,6 +2,8 @@ import {
     faCircleQuestion,
     faDoorOpen,
     faFile,
+    faFloppyDisk,
+    faFolderOpen,
     faGear,
     faICursor,
     faInfo,
@@ -21,6 +23,23 @@ export const appMenuItems = (localize?: LocalizeFunction): MenuItems => [
         label: localize?.("fileMenu") ?? "File",
         icon: <FontAwesomeIcon icon={faFile} />,
         children: [
+            {
+                key: "openFile",
+                label: withShortcut(localize?.("openFile") ?? "Open file", shortcutText("O")),
+                icon: <FontAwesomeIcon icon={faFolderOpen} />,
+            },
+            {
+                key: "saveMenu",
+                label: withShortcut(localize?.("save") ?? "Save", shortcutText("S")),
+                icon: <FontAwesomeIcon icon={faFloppyDisk} />,
+            },
+            {
+                key: "saveAsMenu",
+                label: withShortcut(localize?.("saveAs") ?? "Save as...", shortcutText("S", true)),
+            },
+            {
+                type: "divider",
+            },
             {
                 key: "preferencesMenu",
                 label: localize?.("preferences") ?? "Preferences",
@@ -99,7 +118,9 @@ export type MenuKeys =
     | "editMenu"
     | "undoMenu"
     | "redoMenu"
-    | "insertModeMenu";
+    | "insertModeMenu"
+    | "saveMenu"
+    | "saveAsMenu";
 
 const isMac = /mac/i.test(navigator.userAgent);
 
