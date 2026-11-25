@@ -105,7 +105,8 @@ const getCharCode = (
 };
 
 TextValueView = styled(TextValueView)`
-    width: 370px;
+    // Fill the inspector panel; a fixed width overflows it when its vertical scrollbar shows.
+    width: 100%;
     flex-direction: column;
     .TextValueTable {
         width: 100%;
