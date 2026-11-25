@@ -12,6 +12,7 @@ The versions before 0.8.1 were assigned afterwards from the git history; they we
 - Unit tests for the Rust backend and the TypeScript frontend.
 - Local CI scripts (`local-ci.ps1`, `local-ci.sh`); the GitHub workflow runs manually only.
 - Semantic versioning: `package.json` is the single source of the version, `npm version` keeps the Rust crate in sync.
+- Release workflow: a version change pushed to `develop` tags it and publishes installers for macOS, Linux and Windows.
 
 ### Changed
 - New HexFF hexagon app icon.

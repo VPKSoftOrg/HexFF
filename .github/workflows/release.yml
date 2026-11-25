@@ -1,0 +1,209 @@
+name: Release
+# Runs on every push to develop. When the version in package.json has no published release yet
+# (it was bumped with `npm version` or by hand + `npm run sync-version`), it tags the commit as
+# v<version>, builds the installers on macOS, Ubuntu and Windows and publishes a GitHub release
+# with the version's CHANGELOG.md section as notes and latest.json for the in-app updater.
+# A push without a version change only runs the cheap version check.
+# If a build fails, the release stays a draft; re-run the workflow (or "Run workflow") to retry.
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  check-version:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release: ${{ steps.version.outputs.release }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tags
+
+      - name: Compare the version with the previous release
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          # The previous version is the newest published release, or failing that the newest v* tag.
+          previous=$(gh release list --exclude-drafts --limit 100 --json tagName --jq '.[].tagName' | sort -V | tail -n 1)
+          if [ -z "$previous" ]; then
+            previous=$(git tag -l 'v*' | sort -V | tail -n 1)
+          fi
+          echo "Current version: $version, previous release: ${previous:-none}"
+
+          if gh release view "v$version" --json isDraft --jq '.isDraft' 2>/dev/null | grep -qx false; then
+            echo "v$version is already released, nothing to do."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -n "$previous" ]; then
+            newest=$(printf '%s\n%s\n' "${previous#v}" "$version" | sort -V | tail -n 1)
+            if [ "$newest" != "$version" ]; then
+              echo "::error::Version $version is lower than the previous release $previous."
+              exit 1
+            fi
+          fi
+
+          echo "Version changed: ${previous:-none} -> v$version, releasing."
+          echo "release=true" >> "$GITHUB_OUTPUT"
+
+  create-release:
+    needs: check-version
+    if: needs.check-version.outputs.release == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      release-id: ${{ steps.release.outputs.id }}
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync node version and setup cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+
+      # Cheap checks before spending minutes on three installer builds.
+      - name: Lint and frontend tests
+        run: |
+          npm ci
+          npm run lint
+          npm test
+
+      - name: Create the tag
+        env:
+          TAG: v${{ needs.check-version.outputs.version }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+            echo "Tag $TAG exists (from an earlier run), building $(git rev-parse "$TAG^{commit}")."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" -m "HexFF $TAG" "$GITHUB_SHA"
+            git push origin "refs/tags/$TAG"
+          fi
+
+      - name: Create a draft release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check-version.outputs.version }}
+        run: |
+          tag="v$VERSION"
+          # A draft left by a failed run is replaced.
+          if gh release view "$tag" > /dev/null 2>&1; then
+            gh release delete "$tag" --yes
+          fi
+
+          # Release notes: the version's section in CHANGELOG.md.
+          awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 { found = 1; next }
+            found && index($0, "## [") == 1 { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::warning::CHANGELOG.md has no section for $VERSION."
+            echo "HexFF $tag" > notes.md
+          fi
+
+          gh release create "$tag" --verify-tag --draft --title "HexFF $tag" --notes-file notes.md
+          echo "id=$(gh release view "$tag" --json databaseId --jq '.databaseId')" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: create-release
+    environment: Release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target universal-apple-darwin
+          - platform: ubuntu-24.04
+            args: ""
+          - platform: windows-latest
+            args: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Git configuration
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
+      - name: Checkout the tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.create-release.outputs.tag }}
+
+      - name: Install dependencies (ubuntu only)
+        if: matrix.platform == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev build-essential libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # The universal macOS app is built from both architectures.
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+
+      - name: Sync node version and setup cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # createUpdaterArtifacts is enabled only here, so local `npm run tauri build` works without the signing key.
+      - name: Enable signed updater artifacts
+        shell: bash
+        run: echo '{"bundle":{"createUpdaterArtifacts":true}}' > updater.conf.json
+
+      - name: Build and upload the installers
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          releaseId: ${{ needs.create-release.outputs.release-id }}
+          args: ${{ matrix.args }} --config updater.conf.json
+          updaterJsonPreferNsis: true
+
+  publish-release:
+    needs: [create-release, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${{ needs.create-release.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --draft=false --latest
