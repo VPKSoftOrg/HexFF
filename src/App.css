@@ -14,6 +14,14 @@ TODO: Make dynamic!
   flex-direction: column;
 }
 
+/* The area below the menu and toolbar; the open files fill it. */
+.AppMain {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 /* See: https://css-tricks.com/body-border/ */
 #top, #bottom, #left, #right {
 	background: black;

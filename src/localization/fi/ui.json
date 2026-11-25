@@ -21,5 +21,14 @@
     "dataInspector": "Datan esikatselu",
     "textInspector": "Tekstin esikatselu",
     "characterEncoding": "Merkkijonon enkoodaus",
-    "darkMode": "Tumma tila"
+    "darkMode": "Tumma tila",
+    "searchMenu": "Haku",
+    "goToOffset": "Siirry kohtaan",
+    "offset": "Sijainti",
+    "selection": "Valinta",
+    "fileSize": "Koko",
+    "bytes": "tavua",
+    "hexadecimal": "Heksadesimaali",
+    "decimal": "Desimaali",
+    "invalidOffset": "Anna sijainti väliltä {{min}}–{{max}}."
 }

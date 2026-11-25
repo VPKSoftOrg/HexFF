@@ -21,5 +21,14 @@
     "dataInspector": "Data inspector",
     "textInspector": "Text inspector",
     "characterEncoding": "Character encoding",
-    "darkMode": "Dark mode"
+    "darkMode": "Dark mode",
+    "searchMenu": "Search",
+    "goToOffset": "Go to offset",
+    "offset": "Offset",
+    "selection": "Selection",
+    "fileSize": "Size",
+    "bytes": "bytes",
+    "hexadecimal": "Hexadecimal",
+    "decimal": "Decimal",
+    "invalidOffset": "Enter an offset from {{min}} to {{max}}."
 }
