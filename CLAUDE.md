@@ -15,18 +15,18 @@ Requires Node.js 26+ (`engines` in `package.json`; CI uses Node 26).
 - `npm run build` — type-check (`tsc`) and build the frontend into `dist/`
 - `npm run tauri build` — full release build (this is what CI runs); `npm run test-release` builds without bundling installers
 - `npm run lint` — Biome lint + format check + check (CI gate); `npm run lint-fix` applies fixes
-- Rust: `cargo build` / `cargo clippy` / `cargo test` from the repo root (root `Cargo.toml` is a workspace with `src-tauri` as its only member). There are currently no Rust or frontend tests.
+- Rust: `cargo build` / `cargo test` / `cargo clippy --all-targets -- -D warnings` / `cargo fmt --all` from the repo root (root `Cargo.toml` is a workspace with `src-tauri` as its only member). Run a single test with `cargo test <name>`, e.g. `cargo test inspect::tests::text_utf8`. Compiling the crate needs `dist/` to exist (`npm run build` first). There are no frontend tests.
 
-CI (`.github/workflows/main-lint-test-deploy.yml`) runs on PRs to `master`, `develop`, `release/**` on macOS/Ubuntu/Windows: `npm run lint` then `npm run tauri build`. PRs target `develop`.
+CI (`.github/workflows/main-lint-test-deploy.yml`) runs on PRs to `master`, `develop`, `release/**` on macOS/Ubuntu/Windows: `npm run lint`, `cargo fmt --check`, `npm run tauri build`, then clippy with `-D warnings` and `cargo test`. PRs target `develop`.
 
 ## Architecture
 
-**File access lives entirely in Rust.** The frontend never reads files directly; it calls Tauri commands registered in `src-tauri/src/lib.rs` (`generate_handler!`). All commands and their argument names are wrapped in `src/utilities/app/TauriWrappers.ts` (file ops) and `src/utilities/app/Settings.ts` (`load_settings`/`save_settings`). When adding a command, register it in `lib.rs` and add a typed wrapper there — frontend uses camelCase args (`fileIndex`), Rust receives snake_case (`file_index`).
+**File access lives entirely in Rust.** The frontend never reads files directly; it calls Tauri commands registered in `src-tauri/src/lib.rs` (`generate_handler!`). All commands are wrapped in `src/utilities/app/TauriWrappers.ts` (documents) and `src/utilities/app/Settings.ts` (`load_settings`/`save_settings`). When adding a command, register it in `lib.rs` and add a typed wrapper there — frontend uses camelCase args, Rust receives snake_case.
 
-**Backend state model** (`src-tauri/src/types.rs`): `AppState` holds a `Mutex<Vec<AppFileState>>`; each open file keeps its `std::fs::File` handle, size, `prev_seek_pos`, and a fixed **1024-byte buffer** (`bytes_at_pos`) of the most recently read window. Files are identified by their index in this vector (no close/removal yet).
+**Documents** (`src-tauri/src/documents.rs`): `DocumentStore` (Tauri managed state) maps a `DocumentId` (a `u64` that is never reused) to an entry holding the document's `DocumentInfo`, its canonical path (opening the same file twice returns the existing document) and an `Arc<Mutex<Document>>`. The map lock is only held for lookups; file I/O runs under the single document's lock inside `spawn_blocking` (`run_blocking` in `lib.rs`), so a slow read never blocks other documents. Commands: `open_file`, `close_file`, `get_open_files`, `read_range`, `inspect_data`, `inspect_text`. Errors are returned as `Result<_, String>`; don't `unwrap()` on I/O in commands.
 
-- `read_file(file_index, file_pos)` seeks, fills the 1024-byte buffer, stores it, and returns it **base64-encoded**; the frontend decodes with `atob` in `HexEditViewComponent.tsx`.
-- `get_data_in_position` / `get_text_data_in_position` interpret bytes from the cached buffer (offset relative to `prev_seek_pos`), not from disk — so they reflect the last `read_file` window. Numeric interpretations are in `hex_data.rs`; ASCII/UTF-8/16/32 decoding in `string_encodings.rs`.
+- `read_range(id, offset, length)` returns raw bytes via `tauri::ipc::Response` (an `ArrayBuffer` in the frontend, wrapped as `Uint8Array`); results are shorter at end of file and capped at `MAX_READ_LENGTH`.
+- `src-tauri/src/inspect.rs` holds the pure decoding functions used by the inspectors. Data inspector values are `Option` (`null` in TS) when fewer bytes remain than the type needs. Text inspector output is one cell per byte: a character sits in the cell of its first byte and continuation cells are empty. UTF-8 has no byte order.
 
 **Settings** are persisted by `confy` (TOML, app name `hex_ff`) via `src-tauri/src/config.rs`; the `AppConfig` struct there must stay in sync with the `Settings` type in `src/utilities/app/Settings.ts`.
 

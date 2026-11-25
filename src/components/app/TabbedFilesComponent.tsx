@@ -1,10 +1,9 @@
-import { Tabs } from "antd";
+import { Tabs, type TabsProps } from "antd";
 import classNames from "classnames";
 import * as React from "react";
 import { styled } from "styled-components";
 import type { NotificationType } from "../../hooks/UseNotify";
-import { useTranslate } from "../../localization/Localization";
-import { type AppFileStateResult, type FileReadResult, readFileCurrentPos } from "../../utilities/app/TauriWrappers";
+import type { DocumentInfo } from "../../utilities/app/TauriWrappers";
 import type { CommonProps } from "../Types";
 import { HexEditView } from "./DataInspectors/HexEditView";
 
@@ -12,7 +11,14 @@ import { HexEditView } from "./DataInspectors/HexEditView";
  * The props for the {@link TabbedFiles} component.
  */
 export type TabbedFilesProps = {
-    openFiles: AppFileStateResult[];
+    /** The open documents, one tab each. */
+    openFiles: DocumentInfo[];
+    /** The identifier of the document whose tab is active. */
+    activeFileId: number | null;
+    /** Occurs when the user selects another tab. */
+    onActiveFileChange: (id: number) => void;
+    /** Occurs when the user closes a tab. */
+    onCloseFile: (id: number) => void;
     notification: (
         type: NotificationType,
         title: string | Error | null | undefined,
@@ -20,60 +26,55 @@ export type TabbedFilesProps = {
     ) => void;
 } & CommonProps;
 
+type TabsEditHandler = NonNullable<TabsProps["onEdit"]>;
+
 /**
- * A  component ...
+ * A component showing each open document in its own tab.
  * @param param0 The component props: {@link TabbedFilesProps}.
  * @returns A component.
  */
 export const TabbedFilesComponent = ({
     className, //
     openFiles,
+    activeFileId,
+    onActiveFileChange,
+    onCloseFile,
     notification,
 }: TabbedFilesProps) => {
-    const [openFileData, setOpenFileData] = React.useState<Array<AppFileStateResult & { data: string }>>([]);
-    const [activeTabKey, setActiveTabKey] = React.useState(0);
-    const { translate } = useTranslate();
-
-    React.useEffect(() => {
-        const openFileDataPromises = openFiles.map(f => {
-            return readFileCurrentPos(f.file_index);
-        });
-
-        const newOpenFileData: Array<AppFileStateResult & { data: string }> = [];
-
-        Promise.all(openFileDataPromises)
-            .then((res: FileReadResult[]) => {
-                newOpenFileData.push(...res.map(r => ({ ...openFiles[r.file_index], data: r.file_data })));
-                setOpenFileData(newOpenFileData);
-            })
-            .catch((error: Error) => {
-                notification("error", translate("fileReadFailed", undefined, { error }));
-            });
-    }, [notification, openFiles, translate]);
-
     const items = React.useMemo(() => {
-        return openFileData.map(f => {
+        return openFiles.map(f => {
             return {
-                label: f.file_name_no_path,
-                key: f.file_index.toString(),
+                label: f.name,
+                key: f.id.toString(),
                 closable: true,
                 children: (
                     <HexEditView //
                         notification={notification}
                         rows={16}
-                        fileIndex={f.file_index}
-                        fileSize={f.file_size}
-                        activeTabKey={activeTabKey}
-                        thisTabKey={f.file_index}
+                        fileId={f.id}
+                        fileSize={f.size}
+                        isActive={f.id === activeFileId}
                     />
                 ),
             };
         });
-    }, [activeTabKey, notification, openFileData]);
+    }, [activeFileId, notification, openFiles]);
 
-    const onTabChange = React.useCallback((activeTabKey?: string) => {
-        setActiveTabKey(activeTabKey ? Number.parseInt(activeTabKey) : 0);
-    }, []);
+    const onTabChange = React.useCallback(
+        (key: string) => {
+            onActiveFileChange(Number.parseInt(key, 10));
+        },
+        [onActiveFileChange]
+    );
+
+    const onEdit = React.useCallback<TabsEditHandler>(
+        (key, action) => {
+            if (action === "remove" && typeof key === "string") {
+                onCloseFile(Number.parseInt(key, 10));
+            }
+        },
+        [onCloseFile]
+    );
 
     return (
         <Tabs //
@@ -81,7 +82,9 @@ export const TabbedFilesComponent = ({
             items={items}
             type="editable-card"
             hideAdd
+            activeKey={activeFileId?.toString()}
             onChange={onTabChange}
+            onEdit={onEdit}
         />
     );
 };

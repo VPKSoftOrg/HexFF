@@ -35,11 +35,13 @@ jobs:
 
       - name: Rust setup
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: '. -> target'
 
       - name: Sync node version and setup cache
         uses: actions/setup-node@v4
@@ -53,6 +55,16 @@ jobs:
         
       - name: Lint
         run:  npm run lint
+
+      - name: Rust format check
+        run: cargo fmt --all -- --check
         
       - name: Test deploy
         run: npm run tauri build
+
+      # Clippy and the tests compile the crate, which needs the frontend build in dist/.
+      - name: Rust clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Rust tests
+        run: cargo test

@@ -10,11 +10,12 @@ import { HextEditViewComponent } from "./HexEditViewComponent";
  */
 export type HexEditViewProps = {
     rows: number;
-    fileIndex: number;
+    /** The identifier of the document to show. */
+    fileId: number;
     hexUpperCase?: boolean;
     fileSize: number;
-    activeTabKey: number;
-    thisTabKey: number;
+    /** A value indicating whether this view is in the active tab and should handle keyboard and mouse input. */
+    isActive: boolean;
     notification: (
         type: NotificationType,
         title: string | Error | null | undefined,

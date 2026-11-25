@@ -90,8 +90,8 @@ const getCharCode = (
             return result;
         }
         case CharacterMode.Utf8: {
-            const result = bigEndian ? value?.text_be_utf8[position] : value?.text_le_utf8[position];
-            return result;
+            // UTF-8 has no byte order.
+            return value?.text_utf8[position];
         }
         case CharacterMode.Utf16: {
             const result = bigEndian ? value?.text_be_utf16[position] : value?.text_le_utf16[position];

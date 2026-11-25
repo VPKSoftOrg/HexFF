@@ -7,9 +7,9 @@ import { useDebounce, useUserIdleDebounce } from "../../../hooks/UseDebounce";
 import { useTranslate } from "../../../localization/Localization";
 import {
     type DataInPositionResult,
-    getDataInPosition,
-    getTextDataInPosition,
-    readFile,
+    inspectData,
+    inspectText,
+    readRange,
     type TextDataInPosition,
 } from "../../../utilities/app/TauriWrappers";
 import { InputHex } from "../Inputs/InputHex";
@@ -33,11 +33,10 @@ import { HexEditViewKeyBoardHandler, HexEditViewMouseWheelHandler } from "./Util
 const HextEditViewComponent = ({
     className, //
     rows,
-    fileIndex,
+    fileId,
     fileSize,
     hexUpperCase,
-    activeTabKey,
-    thisTabKey,
+    isActive,
     notification,
 }: HexEditViewProps) => {
     const [fromPosition, setFromPosition] = React.useState(0);
@@ -50,22 +49,20 @@ const HextEditViewComponent = ({
     const onElementFocus = React.useCallback(
         (e: FocusEvent) => {
             // eslint-disable-next-line unicorn/prefer-dom-node-dataset
-            if (e.target instanceof HTMLElement && e.target.getAttribute("data-tab-id") === thisTabKey.toString()) {
+            if (e.target instanceof HTMLElement && e.target.getAttribute("data-tab-id") === fileId.toString()) {
                 setLastFocusedElement(e.target);
             }
         },
-        [thisTabKey]
+        [fileId]
     );
 
-    const listenUserInteraction = React.useMemo(() => {
-        return activeTabKey === thisTabKey;
-    }, [activeTabKey, thisTabKey]);
+    const listenUserInteraction = isActive;
 
     const focusPreviousElement = React.useCallback(() => {
-        if (thisTabKey === activeTabKey && lastFocusedElement && lastFocusedElement !== document.activeElement) {
+        if (isActive && lastFocusedElement && lastFocusedElement !== document.activeElement) {
             lastFocusedElement.focus();
         }
-    }, [activeTabKey, lastFocusedElement, thisTabKey]);
+    }, [isActive, lastFocusedElement]);
 
     // Add a listener for the focus event to keep the hex edit input focuced.
     React.useEffect(() => {
@@ -92,18 +89,14 @@ const HextEditViewComponent = ({
 
     const onFilePositionChange = React.useCallback(
         (value: number) => {
-            void getDataInPosition(fileIndex, value).then(f => {
-                setPositionByteValues(f);
-            });
+            inspectData(fileId, value)
+                .then(setPositionByteValues)
+                .catch((error: Error) => {
+                    notification("error", translate("fileReadFailed", undefined, { error }));
+                });
         },
-        [fileIndex]
+        [fileId, notification, translate]
     );
-
-    React.useEffect(() => {
-        void getTextDataInPosition(fileIndex).then(f => {
-            setPositionTextValues(f);
-        });
-    }, [fileIndex]);
 
     // Memoize the inputs so that they don't need to be recreated on every render
     const inputsMemo = React.useMemo(() => {
@@ -112,7 +105,7 @@ const HextEditViewComponent = ({
             inputs.push(
                 <InputHex //
                     className="InputCellInput"
-                    data-input-id={`${fileIndex}_${i}`}
+                    data-input-id={`${fileId}_${i}`}
                     key={i}
                     numId={i}
                     onHexValueChange={onHexValueChange}
@@ -122,22 +115,12 @@ const HextEditViewComponent = ({
                     filePosition={fromPosition + i}
                     onFilePositionChange={onFilePositionChange}
                     hexUpperCase={hexUpperCase}
-                    tabId={thisTabKey}
+                    tabId={fileId}
                 />
             );
         }
         return inputs;
-    }, [
-        rows,
-        fileIndex,
-        onHexValueChange,
-        fromPosition,
-        fileSize,
-        hexData,
-        onFilePositionChange,
-        hexUpperCase,
-        thisTabKey,
-    ]);
+    }, [rows, fileId, onHexValueChange, fromPosition, fileSize, hexData, onFilePositionChange, hexUpperCase]);
 
     const tableMemo = React.useMemo(() => {
         const rowMap = Array.from({ length: rows });
@@ -189,17 +172,18 @@ const HextEditViewComponent = ({
     }, [fromPosition, hexData, inputsMemo, rows]);
 
     const readFromPosition = React.useCallback(() => {
-        readFile(fileIndex, fromPosition)
-            .then(res => {
-                const buff = Uint8Array.from(atob(res.file_data), c => c.codePointAt(0) ?? 0);
-                setHexData([...buff]);
+        const pageSize = rows * columns;
+        Promise.all([readRange(fileId, fromPosition, pageSize), inspectText(fileId, fromPosition, pageSize)])
+            .then(([bytes, text]) => {
+                setHexData([...bytes]);
+                setPositionTextValues(text);
                 readError.current = false;
             })
             .catch((error: Error) => {
                 readError.current = true;
                 notification("error", translate("fileReadFailed", undefined, { error }));
             });
-    }, [fileIndex, fromPosition, notification, translate]);
+    }, [fileId, fromPosition, notification, rows, translate]);
 
     useDebounce(readFromPosition, 100);
 
@@ -209,6 +193,9 @@ const HextEditViewComponent = ({
             ? (value?: number | undefined) => formatterUpper(value ?? 0)
             : (value?: number | undefined) => formatterLower(value ?? 0);
     }, [hexUpperCase]);
+
+    // The largest scroll position; zero when the whole file fits on one page.
+    const maxFromPosition = Math.max(0, fileSize - rows * columns);
 
     const onChange = React.useCallback((value: number) => {
         setFromPosition(value);
@@ -227,10 +214,10 @@ const HextEditViewComponent = ({
                 listenUserInteraction,
                 fileSize,
                 rows,
-                fileIndex
+                fileId
             );
         },
-        [fileIndex, fileSize, fromPosition, listenUserInteraction, rows]
+        [fileId, fileSize, fromPosition, listenUserInteraction, rows]
     );
 
     const onMouseWheel = React.useCallback(
@@ -262,7 +249,8 @@ const HextEditViewComponent = ({
                 <div className="HexEditView-Slider-Container">
                     <Slider //
                         min={0}
-                        max={fileSize - rows * columns}
+                        max={maxFromPosition}
+                        disabled={maxFromPosition === 0}
                         value={fromPosition}
                         onChange={onChange}
                         vertical
