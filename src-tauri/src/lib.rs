@@ -528,3 +528,135 @@ fn remove_recent_file(path: String, recent: State<'_, RecentFilesState>) -> Vec<
 fn clear_recent_files(recent: State<'_, RecentFilesState>) -> Vec<RecentFile> {
     recent.update(RecentFiles::clear)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::io::Write;
+
+    fn temp_file(content: &[u8]) -> tempfile::NamedTempFile {
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        file.write_all(content).unwrap();
+        file.flush().unwrap();
+        file
+    }
+
+    fn open(store: &DocumentStore, file: &tempfile::NamedTempFile) -> DocumentInfo {
+        store
+            .insert(Document::open(store.next_id(), file.path()).unwrap())
+            .unwrap()
+    }
+
+    fn info() -> DocumentInfo {
+        DocumentInfo {
+            id: 1,
+            path: "/a.bin".to_string(),
+            name: "a.bin".to_string(),
+            size: 3,
+            modified: true,
+            can_undo: true,
+            can_redo: false,
+            generation: 0,
+        }
+    }
+
+    /// The JSON shapes are part of the contract with the types in `TauriWrappers.ts`.
+    #[test]
+    fn save_outcome_serializes_as_the_frontend_expects() {
+        let document = serde_json::to_value(info()).unwrap();
+        assert_eq!(
+            document,
+            json!({
+                "id": 1,
+                "path": "/a.bin",
+                "name": "a.bin",
+                "size": 3,
+                "modified": true,
+                "can_undo": true,
+                "can_redo": false,
+                "generation": 0,
+            })
+        );
+
+        assert_eq!(
+            serde_json::to_value(SaveOutcome::new(SaveResult::Saved, info())).unwrap(),
+            json!({ "status": "saved", "document": document })
+        );
+        assert_eq!(
+            serde_json::to_value(SaveOutcome::new(SaveResult::ChangedOnDisk, info())).unwrap(),
+            json!({ "status": "changedOnDisk" })
+        );
+        assert_eq!(
+            serde_json::to_value(SaveOutcome::new(SaveResult::ChangedInPlace, info())).unwrap(),
+            json!({ "status": "changedInPlace" })
+        );
+    }
+
+    #[test]
+    fn undo_result_serializes_a_missing_offset_as_null() {
+        let value = serde_json::to_value(UndoResult {
+            document: info(),
+            offset: None,
+        })
+        .unwrap();
+        assert_eq!(value["offset"], serde_json::Value::Null);
+        assert_eq!(value["document"]["id"], 1);
+    }
+
+    #[test]
+    fn read_document_reads_an_open_document() {
+        let store = DocumentStore::default();
+        let file = temp_file(b"0123456789");
+        let document = open(&store, &file);
+
+        let bytes =
+            tauri::async_runtime::block_on(read_document(&store, document.id, 8, 10)).unwrap();
+        assert_eq!(bytes, b"89");
+    }
+
+    #[test]
+    fn unknown_document_is_an_error() {
+        let store = DocumentStore::default();
+        let error = tauri::async_runtime::block_on(read_document(&store, 42, 0, 1)).unwrap_err();
+        assert!(error.contains("42"));
+
+        let result = tauri::async_runtime::block_on(change_document(&store, 42, |document| {
+            Ok(document.undo())
+        }));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn change_document_updates_the_stored_info() {
+        let store = DocumentStore::default();
+        let file = temp_file(b"abc");
+        let document = open(&store, &file);
+
+        let (_, changed) =
+            tauri::async_runtime::block_on(change_document(&store, document.id, |document| {
+                document.edit(3, 0, b"de", false)
+            }))
+            .unwrap();
+
+        assert_eq!(changed.size, 5);
+        assert!(changed.modified);
+        assert!(changed.can_undo);
+        assert_eq!(store.list().unwrap(), vec![changed]);
+    }
+
+    #[test]
+    fn action_errors_leave_the_stored_info_unchanged() {
+        let store = DocumentStore::default();
+        let file = temp_file(b"abc");
+        let document = open(&store, &file);
+
+        let result =
+            tauri::async_runtime::block_on(change_document(&store, document.id, |document| {
+                document.edit(10, 0, b"x", false)
+            }));
+
+        assert!(result.is_err());
+        assert_eq!(store.list().unwrap(), vec![document]);
+    }
+}

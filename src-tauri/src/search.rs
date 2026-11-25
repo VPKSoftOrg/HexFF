@@ -723,4 +723,102 @@ mod tests {
         .unwrap();
         assert!(result.cancelled);
     }
+
+    /// The JSON shapes are part of the contract with the types in `TauriWrappers.ts`.
+    #[test]
+    fn queries_deserialize_from_frontend_json() {
+        let query = |json: &str| serde_json::from_str::<SearchQuery>(json).unwrap();
+
+        assert_eq!(
+            query(r#"{"type":"hex","text":"48 ??"}"#),
+            SearchQuery::Hex {
+                text: "48 ??".into()
+            }
+        );
+        assert_eq!(
+            query(r#"{"type":"text","text":"Hi","encoding":"utf16Le","ignoreCase":true}"#),
+            SearchQuery::Text {
+                text: "Hi".into(),
+                encoding: TextEncoding::Utf16Le,
+                ignore_case: true,
+            }
+        );
+        assert_eq!(
+            query(r#"{"type":"number","text":"1","kind":"f64","bigEndian":true}"#),
+            SearchQuery::Number {
+                text: "1".into(),
+                kind: NumberKind::F64,
+                big_endian: true,
+            }
+        );
+        assert_eq!(
+            serde_json::from_str::<SearchDirection>(r#""previous""#).unwrap(),
+            SearchDirection::Previous
+        );
+        assert!(serde_json::from_str::<SearchQuery>(r#"{"type":"regex","text":"a"}"#).is_err());
+    }
+
+    #[test]
+    fn result_serializes_in_camel_case() {
+        let result = SearchResult {
+            matches: vec![1, 5],
+            match_length: 2,
+            truncated: false,
+            cancelled: true,
+        };
+        assert_eq!(
+            serde_json::to_value(result).unwrap(),
+            serde_json::json!({ "matches": [1, 5], "matchLength": 2, "truncated": false, "cancelled": true })
+        );
+    }
+
+    #[test]
+    fn pattern_length_is_limited() {
+        let at_limit = "00".repeat(MAX_PATTERN_LENGTH);
+        assert_eq!(
+            SearchQuery::Hex { text: at_limit }
+                .to_pattern()
+                .unwrap()
+                .len(),
+            MAX_PATTERN_LENGTH
+        );
+
+        let too_long = "00".repeat(MAX_PATTERN_LENGTH + 1);
+        assert!(SearchQuery::Hex { text: too_long }.to_pattern().is_err());
+    }
+
+    #[test]
+    fn integer_limits_and_hex_negatives() {
+        let number = |text: &str, kind| {
+            SearchQuery::Number {
+                text: text.into(),
+                kind,
+                big_endian: false,
+            }
+            .to_pattern()
+            .map(|p| p.exact_bytes().unwrap())
+        };
+
+        assert_eq!(number("-128", NumberKind::I8).unwrap(), [0x80]);
+        assert!(number("-129", NumberKind::I8).is_err());
+        assert_eq!(number("-0x80", NumberKind::I8).unwrap(), [0x80]);
+        assert_eq!(number("0XFF", NumberKind::U8).unwrap(), [0xff]);
+        assert_eq!(
+            number("18446744073709551615", NumberKind::U64).unwrap(),
+            [0xff; 8]
+        );
+        assert!(number("18446744073709551616", NumberKind::U64).is_err());
+        assert!(number("", NumberKind::U16).is_err());
+        assert!(number("1.5", NumberKind::U32).is_err());
+    }
+
+    #[test]
+    fn empty_text_is_an_error() {
+        let query = SearchQuery::Text {
+            text: String::new(),
+            encoding: TextEncoding::Utf8,
+            ignore_case: false,
+        };
+        assert!(query.to_pattern().is_err());
+    }
 }

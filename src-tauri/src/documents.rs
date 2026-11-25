@@ -808,4 +808,46 @@ mod tests {
         assert_eq!(store.list().unwrap(), vec![b.clone()]);
         assert!(store.get(b.id).is_ok());
     }
+
+    #[test]
+    fn store_update_info_replaces_listed_info() {
+        let store = DocumentStore::default();
+        let file = temp_file(b"abc");
+        let info = store
+            .insert(Document::open(store.next_id(), file.path()).unwrap())
+            .unwrap();
+
+        let updated = DocumentInfo {
+            size: 10,
+            modified: true,
+            ..info.clone()
+        };
+        store
+            .update_info(&updated, &file.path().canonicalize().unwrap())
+            .unwrap();
+        assert_eq!(store.list().unwrap(), vec![updated]);
+
+        // Updating a closed document is ignored.
+        store.close(info.id).unwrap();
+        store.update_info(&info, file.path()).unwrap();
+        assert!(store.list().unwrap().is_empty());
+    }
+
+    #[test]
+    fn store_lists_documents_in_opening_order() {
+        let store = DocumentStore::default();
+        let files: Vec<_> = (0..5).map(|i| temp_file(&[i])).collect();
+        let ids: Vec<DocumentId> = files
+            .iter()
+            .map(|file| {
+                store
+                    .insert(Document::open(store.next_id(), file.path()).unwrap())
+                    .unwrap()
+                    .id
+            })
+            .collect();
+
+        let listed: Vec<DocumentId> = store.list().unwrap().iter().map(|info| info.id).collect();
+        assert_eq!(listed, ids);
+    }
 }

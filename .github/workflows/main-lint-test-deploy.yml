@@ -56,6 +56,9 @@ jobs:
       - name: Lint
         run:  npm run lint
 
+      - name: Frontend tests
+        run: npm test
+
       - name: Rust format check
         run: cargo fmt --all -- --check
         
