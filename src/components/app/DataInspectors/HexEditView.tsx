@@ -1,5 +1,4 @@
-// biome-ignore lint/style/useImportType: * is not a type
-import * as React from "react";
+import type * as React from "react";
 import type { JSX } from "react";
 import { styled } from "styled-components";
 import type { NotificationType } from "../../../hooks/UseNotify";

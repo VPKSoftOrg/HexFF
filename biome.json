@@ -1,14 +1,13 @@
 {
-    "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+    "$schema": "https://biomejs.dev/schemas/2.6.9/schema.json",
     "vcs": {
         "enabled": false,
         "clientKind": "git",
         "useIgnoreFile": false
     },
     "files": {
-        "include": ["src/**/*.ts", "src/**/*.tsx"],
-        "ignoreUnknown": false,
-        "ignore": ["vite-env.d.ts", "PasswordKeeper-help"]
+        "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/vite-env.d.ts", "!**/PasswordKeeper-help"],
+        "ignoreUnknown": false
     },
     "formatter": {
         "enabled": true,
@@ -17,29 +16,24 @@
         "indentWidth": 4,
         "lineEnding": "lf"
     },
-    "organizeImports": {
-        "enabled": true
-    },
+    "assist": { "actions": { "source": { "organizeImports": "on" } } },
     "linter": {
         "enabled": true,
         "rules": {
-            "recommended": false,
-            "a11y": {
-                "noBlankTarget": "error"
-            },
+            "preset": "none",
+            "a11y": {},
             "complexity": {
                 "noExtraBooleanCast": "error",
                 "noForEach": "error",
-                "noMultipleSpacesInRegularExpressionLiterals": "error",
                 "noStaticOnlyClass": "error",
                 "noUselessCatch": "error",
                 "noUselessSwitchCase": "error",
                 "noUselessThisAlias": "error",
                 "noUselessTypeConstraint": "error",
-                "noWith": "error",
                 "useArrowFunction": "error",
                 "useDateNow": "error",
-                "useFlatMap": "error"
+                "useFlatMap": "error",
+                "noAdjacentSpacesInRegex": "error"
             },
             "correctness": {
                 "noChildrenProp": "error",
@@ -51,7 +45,6 @@
                 "noInnerDeclarations": "error",
                 "noInvalidBuiltinInstantiation": "error",
                 "noInvalidConstructorSuper": "error",
-                "noNewSymbol": "error",
                 "noNonoctalDecimalEscape": "error",
                 "noPrecisionLoss": "error",
                 "noSelfAssign": "error",
@@ -64,16 +57,17 @@
                 "noUnsafeOptionalChaining": "error",
                 "noUnusedLabels": "error",
                 "noUnusedVariables": "warn",
-                "useArrayLiterals": "off",
                 "useExhaustiveDependencies": "warn",
                 "useHookAtTopLevel": "error",
                 "useIsNan": "error",
                 "useJsxKeyInIterable": "error",
                 "useValidForDirection": "error",
-                "useYield": "error"
+                "useYield": "error",
+                "useValidTypeof": "error"
             },
             "security": {
-                "noDangerouslySetInnerHtmlWithChildren": "error"
+                "noDangerouslySetInnerHtmlWithChildren": "error",
+                "noBlankTarget": "error"
             },
             "style": {
                 "noNamespace": "error",
@@ -92,7 +86,8 @@
                 "useForOf": "error",
                 "useNodejsImportProtocol": "error",
                 "useNumberNamespace": "error",
-                "useThrowNewError": "error"
+                "useThrowNewError": "error",
+                "useArrayLiterals": "off"
             },
             "suspicious": {
                 "noAssignInExpressions": "error",
@@ -131,10 +126,10 @@
                 "useIsArray": "error",
                 "useNamespaceKeyword": "error",
                 "useNumberToFixedDigitsArgument": "error",
-                "useValidTypeof": "error"
+                "noWith": "error"
             }
         },
-        "ignore": ["**/.eslintrc.cjs", "src/localization/rust_i18n_transform", "**/vite.config.ts"]
+        "includes": ["**", "!**/.eslintrc.cjs", "!**/src/localization/rust_i18n_transform", "!**/vite.config.ts"]
     },
     "javascript": {
         "formatter": {

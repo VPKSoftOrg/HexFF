@@ -1,7 +1,10 @@
 import { Menu, type MenuProps } from "antd";
 import type { ItemType } from "antd/es/menu/interface";
 import classNames from "classnames";
-import type { MenuInfo, MenuMode } from "rc-menu/lib/interface";
+
+type MenuInfo = Parameters<NonNullable<MenuProps["onClick"]>>[0];
+type MenuMode = NonNullable<MenuProps["mode"]>;
+
 import * as React from "react";
 import { styled } from "styled-components";
 import type { CommonProps } from "../components/Types";

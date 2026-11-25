@@ -1,5 +1,5 @@
 {
-    "updateCheckFailedFile": "File open failed with message '{{error}}'.",
+    "updateCheckFailed": "Update check failed with message '{{error}}'.",
     "allFiles": "All files",
     "openFile": "Open file",
     "fileOpenFailed": "File open failed with message '{{error}}'.",
