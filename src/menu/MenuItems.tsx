@@ -86,6 +86,22 @@ export const appMenuItems = (localize?: LocalizeFunction): MenuItems => [
         icon: <FontAwesomeIcon icon={faMagnifyingGlass} />,
         children: [
             {
+                key: "findMenu",
+                label: withShortcut(localize?.("find") ?? "Find...", shortcutText("F")),
+                icon: <FontAwesomeIcon icon={faMagnifyingGlass} />,
+            },
+            {
+                key: "findNextMenu",
+                label: withShortcut(localize?.("findNext") ?? "Find next", "F3"),
+            },
+            {
+                key: "findPreviousMenu",
+                label: withShortcut(localize?.("findPrevious") ?? "Find previous", "Shift+F3"),
+            },
+            {
+                type: "divider",
+            },
+            {
                 key: "goToOffsetMenu",
                 label: withShortcut(localize?.("goToOffset") ?? "Go to offset", shortcutText("G")),
                 icon: <FontAwesomeIcon icon={faLocationCrosshairs} />,
@@ -120,7 +136,10 @@ export type MenuKeys =
     | "redoMenu"
     | "insertModeMenu"
     | "saveMenu"
-    | "saveAsMenu";
+    | "saveAsMenu"
+    | "findMenu"
+    | "findNextMenu"
+    | "findPreviousMenu";
 
 const isMac = /mac/i.test(navigator.userAgent);
 

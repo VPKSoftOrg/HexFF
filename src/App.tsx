@@ -367,6 +367,18 @@ const App = () => {
                     setViewCommand(current => ({ type: "redo", seq: (current?.seq ?? 0) + 1 }));
                     break;
                 }
+                case "findMenu": {
+                    setViewCommand(current => ({ type: "find", seq: (current?.seq ?? 0) + 1 }));
+                    break;
+                }
+                case "findNextMenu": {
+                    setViewCommand(current => ({ type: "findNext", seq: (current?.seq ?? 0) + 1 }));
+                    break;
+                }
+                case "findPreviousMenu": {
+                    setViewCommand(current => ({ type: "findPrevious", seq: (current?.seq ?? 0) + 1 }));
+                    break;
+                }
                 case "insertModeMenu": {
                     setViewCommand(current => ({ type: "toggleInsertMode", seq: (current?.seq ?? 0) + 1 }));
                     break;

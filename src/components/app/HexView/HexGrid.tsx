@@ -28,6 +28,8 @@ type HexGridProps = {
     /** `1` when the high nibble of the cursor byte has been typed and the low nibble is next. */
     cursorNibble: 0 | 1;
     selection: ByteRange | null;
+    /** Offsets of visible bytes that belong to a search match. */
+    highlights: Set<number> | null;
     activeColumn: HexColumn;
     focused: boolean;
     upperCase?: boolean;
@@ -72,6 +74,7 @@ const HexGridComponent = ({
     cursor,
     cursorNibble,
     selection,
+    highlights,
     activeColumn,
     focused,
     upperCase = false,
@@ -152,6 +155,7 @@ const HexGridComponent = ({
             const cellClass = (cellColumn: HexColumn) =>
                 classNames({
                     Selected: isSelected,
+                    Match: !isSelected && highlights?.has(offset) === true,
                     Cursor: isCursor && cellColumn === activeColumn,
                     CursorShadow: isCursor && cellColumn !== activeColumn,
                     GroupStart: groupStart && cellColumn === "hex",
@@ -274,6 +278,9 @@ const HexGrid = styled(HexGridComponent)`
     }
     .Selected {
         background-color: var(--hex-selection-bg);
+    }
+    .Match {
+        background-color: var(--hex-match-bg);
     }
     .CursorShadow {
         outline: 1px solid var(--hex-cursor-bg);

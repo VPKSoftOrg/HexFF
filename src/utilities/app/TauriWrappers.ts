@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 /**
  * An open document in the backend.
@@ -208,19 +209,97 @@ const checkFileChanged = (id: number) => invokeCommand<boolean>("check_file_chan
  */
 const reloadFile = (id: number) => invokeCommand<DocumentInfo>("reload_file", { id });
 
-export type { DataInPositionResult, DocumentInfo, SaveOutcome, TextDataInPosition, UndoResult };
+/** A text encoding for text searches. */
+type TextEncoding = "ascii" | "utf8" | "utf16Le" | "utf16Be" | "utf32Le" | "utf32Be";
+
+/** A number type for number searches. */
+type NumberKind = "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "u64" | "i64" | "f32" | "f64";
+
+/**
+ * What to search for.
+ * - `hex`: bytes such as `48 65 6c`; `??` matches any byte and `4?` any low nibble.
+ * - `text`: text in an encoding; `ignoreCase` folds ASCII letters only.
+ * - `number`: a number of a type and byte order; integers may be written in hex with `0x`.
+ */
+type SearchQuery =
+    | { type: "hex"; text: string }
+    | { type: "text"; text: string; encoding: TextEncoding; ignoreCase: boolean }
+    | { type: "number"; text: string; kind: NumberKind; bigEndian: boolean };
+
+/**
+ * Which matches to look for: `next` is the first match at or after the offset, `previous` the last
+ * match before it, and `all` every match up to the limit.
+ */
+type SearchDirection = "next" | "previous" | "all";
+
+/** The result of a search. */
+type SearchResult = {
+    /** The start offsets of the matches. */
+    matches: number[];
+    /** The length of each match in bytes. */
+    matchLength: number;
+    /** Whether more matches exist than were returned. */
+    truncated: boolean;
+    /** Whether the search was cancelled before it finished. */
+    cancelled: boolean;
+};
+
+/** Search progress. */
+type SearchProgress = { searchId: number; scanned: number; total: number };
+
+/**
+ * Searches an open document. Progress is reported through {@link onSearchProgress}.
+ * @param id The document identifier.
+ * @param searchId An identifier for this search, used to cancel it and to match progress events.
+ * @param query What to search for.
+ * @param from The offset to search from (not used for `all`).
+ * @param direction Which matches to look for.
+ */
+const searchDocument = (id: number, searchId: number, query: SearchQuery, from: number, direction: SearchDirection) =>
+    invokeCommand<SearchResult>("search_document", { id, searchId, query, from, direction });
+
+/**
+ * Cancels a running search; it then returns the matches found so far.
+ * @param searchId The search identifier.
+ */
+const cancelSearch = (searchId: number) => invokeCommand<void>("cancel_search", { searchId });
+
+/**
+ * Listens to search progress.
+ * @param callback Called with each progress update.
+ * @returns A function that stops listening.
+ */
+const onSearchProgress = (callback: (progress: SearchProgress) => void): Promise<UnlistenFn> =>
+    listen<SearchProgress>("search-progress", event => callback(event.payload));
+
+export type {
+    DataInPositionResult,
+    DocumentInfo,
+    NumberKind,
+    SaveOutcome,
+    SearchDirection,
+    SearchProgress,
+    SearchQuery,
+    SearchResult,
+    TextDataInPosition,
+    TextEncoding,
+    UndoResult,
+};
 export {
+    cancelSearch,
     checkFileChanged,
     closeFile,
     editDocument,
     getOpenFiles,
     inspectData,
     inspectText,
+    onSearchProgress,
     openFile,
     readRange,
     redoEdit,
     reloadFile,
     saveFile,
     saveFileAs,
+    searchDocument,
     undoEdit,
 };

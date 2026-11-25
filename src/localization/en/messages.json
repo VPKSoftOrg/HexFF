@@ -9,5 +9,6 @@
     "litleEndian": "Litle endian",
     "bigEndian": "Big endian",
     "fileEditFailed": "Edit failed with message '{{error}}'.",
-    "fileSaveFailed": "File save failed with message '{{error}}'."
+    "fileSaveFailed": "File save failed with message '{{error}}'.",
+    "searchFailed": "Search failed with message '{{error}}'."
 }
