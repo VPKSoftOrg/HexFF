@@ -18,7 +18,19 @@ Requires Node.js 26+ (`engines` in `package.json`; CI uses Node 26).
 - `npm run lint` — Biome lint + format check + check (CI gate); `npm run lint-fix` applies fixes
 - Rust: `cargo build` / `cargo test` / `cargo clippy --all-targets -- -D warnings` / `cargo fmt --all` from the repo root (root `Cargo.toml` is a workspace with `src-tauri` as its only member). Run a single test with `cargo test <name>`, e.g. `cargo test inspect::tests::text_utf8`. Compiling the crate needs `dist/` to exist (`npm run build` first). Rust tests sit in a `#[cfg(test)] mod tests` at the end of each module; tests of JSON shapes (`serde_json::to_value`) guard the contract with the TypeScript types in `TauriWrappers.ts` and `Settings.ts`.
 
-CI (`.github/workflows/main-lint-test-deploy.yml`) runs on PRs to `master`, `develop`, `release/**` on macOS/Ubuntu/Windows: `npm run lint`, `npm test`, `cargo fmt --check`, `npm run tauri build`, then clippy with `-D warnings` and `cargo test`. PRs target `develop`.
+CI (`.github/workflows/main-lint-test-deploy.yml`) is **manual only** (`workflow_dispatch`, to save CI minutes); it runs on macOS/Ubuntu/Windows: `npm run lint`, `npm test`, `cargo fmt --check`, `npm run tauri build`, then clippy with `-D warnings` and `cargo test`. PRs target `develop`.
+
+**Run the CI checks locally before every commit/PR** with `.\local-ci.ps1` (Windows) or `./local-ci.sh`. They stop at the first failure and run, in order:
+
+1. `npm install`
+2. `npm run lint`
+3. `npm test`
+4. `cargo fmt --all -- --check`
+5. `npm run build` (with `-Full` / `--full`: `npm run tauri build`, the installer build CI does)
+6. `cargo clippy --all-targets -- -D warnings`
+7. `cargo test`
+
+All steps must pass before pushing. If a step fails, fix it (`npm run lint-fix`, `cargo fmt --all`) and rerun.
 
 ## Architecture
 

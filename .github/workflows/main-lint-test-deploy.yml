@@ -1,9 +1,7 @@
 name: Lint & Test deployment package
+# Run manually only (Actions tab -> Run workflow) to save CI minutes.
+# Run the same checks locally with local-ci.ps1 / local-ci.sh before opening a pull request.
 on:
-  pull_request:
-    branches: [master,develop,release/**]
-    paths-ignore:
-      - '**.md'
   workflow_dispatch:
   
 jobs:
