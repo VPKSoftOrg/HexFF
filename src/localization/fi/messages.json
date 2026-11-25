@@ -9,5 +9,6 @@
     "litleEndian": "Nouseva tavujärjestys",
     "bigEndian": "Laskeva tavujärjestys",
     "fileEditFailed": "Muokkaus epäonnistui virheellä: '{{error}}'.",
-    "fileSaveFailed": "Tiedoston tallennus epäonnistui virheellä: '{{error}}'."
+    "fileSaveFailed": "Tiedoston tallennus epäonnistui virheellä: '{{error}}'.",
+    "searchFailed": "Haku epäonnistui virheellä: '{{error}}'."
 }

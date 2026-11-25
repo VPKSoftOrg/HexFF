@@ -34,10 +34,11 @@ import {
     scrollTo,
     selectionRange,
 } from "./HexNavigation";
+import { type SearchMatches, SearchPanel, type SearchRequest } from "./SearchPanel";
 
 /** A command sent to the active hex view from the menu or toolbar. */
 export type HexViewCommand = {
-    type: "goToOffset" | "undo" | "redo" | "toggleInsertMode";
+    type: "goToOffset" | "undo" | "redo" | "toggleInsertMode" | "find" | "findNext" | "findPrevious";
     /** A sequence number; a new number means a new request. */
     seq: number;
 };
@@ -206,6 +207,9 @@ const HexViewComponent = ({
     const [editMode, setEditMode] = React.useState<EditMode>("overwrite");
     const [nibble, setNibble] = React.useState<0 | 1>(0);
     const [version, setVersion] = React.useState(0);
+    const [inspectorTab, setInspectorTab] = React.useState("data");
+    const [searchRequest, setSearchRequest] = React.useState<SearchRequest | null>(null);
+    const [searchMatches, setSearchMatches] = React.useState<SearchMatches | null>(null);
     const gridAreaRef = React.useRef<HTMLDivElement>(null);
     const focusRef = React.useRef<HTMLDivElement>(null);
     const wheelRemainder = React.useRef(0);
@@ -279,6 +283,40 @@ const HexViewComponent = ({
     const visibleData = useVisibleData(fileId, topOffset, visibleRows * BYTES_PER_ROW, dataVersion, onReadError);
     const cursorData = useCursorData(fileId, state.cursor, fileSize, dataVersion, onReadError);
     const selection = selectionRange(state, fileSize);
+
+    // The visible bytes that belong to a "find all" match, for highlighting.
+    const highlights = React.useMemo(() => {
+        if (!searchMatches || searchMatches.offsets.length === 0) {
+            return null;
+        }
+        const { offsets, length } = searchMatches;
+        const first = topOffset - length + 1;
+        const end = topOffset + visibleRows * BYTES_PER_ROW;
+        // Binary search for the first match that can reach the visible range.
+        let low = 0;
+        let high = offsets.length;
+        while (low < high) {
+            const middle = (low + high) >> 1;
+            if (offsets[middle] < first) {
+                low = middle + 1;
+            } else {
+                high = middle;
+            }
+        }
+        const result = new Set<number>();
+        for (let i = low; i < offsets.length && offsets[i] < end; i++) {
+            for (let offset = offsets[i]; offset < offsets[i] + length; offset++) {
+                result.add(offset);
+            }
+        }
+        return result;
+    }, [searchMatches, topOffset, visibleRows]);
+
+    /** Opens the search tab or searches again; `focus` puts the keyboard focus in the search box. */
+    const requestSearch = React.useCallback((type: SearchRequest["type"]) => {
+        setInspectorTab("search");
+        setSearchRequest(current => ({ type, seq: (current?.seq ?? 0) + 1 }));
+    }, []);
 
     // Fit as many rows as the grid area has room for (one row is the header).
     React.useEffect(() => {
@@ -463,9 +501,21 @@ const HexViewComponent = ({
                 enqueue(toggleEditMode);
                 break;
             }
+            case "find": {
+                requestSearch("focus");
+                return;
+            }
+            case "findNext": {
+                requestSearch("next");
+                break;
+            }
+            case "findPrevious": {
+                requestSearch("previous");
+                break;
+            }
         }
         focusRef.current?.focus();
-    }, [command, enqueue, isActive, toggleEditMode, undoOrRedo]);
+    }, [command, enqueue, isActive, requestSearch, toggleEditMode, undoOrRedo]);
 
     const onKeyDown = React.useCallback(
         (event: React.KeyboardEvent) => {
@@ -476,6 +526,10 @@ const HexViewComponent = ({
 
             if (primary && lowerKey === "g") {
                 setGoToOpen(true);
+            } else if (primary && lowerKey === "f") {
+                requestSearch("focus");
+            } else if (key === "F3") {
+                requestSearch(event.shiftKey ? "previous" : "next");
             } else if (primary && lowerKey === "z") {
                 enqueue(() => undoOrRedo(event.shiftKey));
             } else if (primary && lowerKey === "y" && !isMac) {
@@ -522,6 +576,7 @@ const HexViewComponent = ({
             deleteBytes,
             endTyping,
             enqueue,
+            requestSearch,
             setViewState,
             toggleEditMode,
             typeCharacter,
@@ -584,6 +639,32 @@ const HexViewComponent = ({
         [endTyping, enqueue, setViewState]
     );
 
+    /** Selects a search match and scrolls it into view if needed. */
+    const onFound = React.useCallback(
+        (offset: number, length: number) => {
+            enqueue(() => {
+                endTyping();
+                const rows = visibleRowsRef.current;
+                const end = offset + length - 1;
+                let next = stateRef.current;
+                const startRow = Math.floor(offset / BYTES_PER_ROW);
+                const endRow = Math.floor(end / BYTES_PER_ROW);
+                if (startRow < next.topRow || endRow >= next.topRow + rows) {
+                    next = scrollTo(next, startRow - Math.floor(rows / 4), sizeRef.current, rows);
+                }
+                setViewState({ ...next, cursor: end, anchor: length > 1 ? offset : null });
+            });
+        },
+        [endTyping, enqueue, setViewState]
+    );
+
+    const onSearchError = React.useCallback(
+        (error: unknown) => {
+            notification("error", translate("searchFailed", undefined, { error }));
+        },
+        [notification, translate]
+    );
+
     const onGoToCancel = React.useCallback(() => {
         setGoToOpen(false);
         focusRef.current?.focus();
@@ -606,6 +687,7 @@ const HexViewComponent = ({
         "--hex-cursor-bg": token.colorPrimary,
         "--hex-cursor-color": token.colorTextLightSolid,
         "--hex-selection-bg": token.colorPrimaryBorder,
+        "--hex-match-bg": token.colorWarningBorder,
         "--hex-offset-color": token.colorTextSecondary,
         "--hex-header-color": token.colorTextSecondary,
         "--hex-focus-border": token.colorPrimaryBorder,
@@ -636,6 +718,7 @@ const HexViewComponent = ({
                                 cursor={state.cursor}
                                 cursorNibble={nibble}
                                 selection={selection}
+                                highlights={highlights}
                                 activeColumn={activeColumn}
                                 focused={focused}
                                 upperCase={hexUpperCase}
@@ -677,6 +760,8 @@ const HexViewComponent = ({
             </div>
             <Tabs
                 className="HexView-Inspectors"
+                activeKey={inspectorTab}
+                onChange={setInspectorTab}
                 items={[
                     {
                         label: translate("dataInspector"),
@@ -695,6 +780,25 @@ const HexViewComponent = ({
                         label: translate("textInspector"),
                         key: "text",
                         children: <TextValueView rows={visibleRows} value={visibleData?.text} />,
+                    },
+                    {
+                        label: translate("search"),
+                        key: "search",
+                        // Keep the panel mounted so the query and results survive tab switches.
+                        forceRender: true,
+                        children: (
+                            <SearchPanel
+                                fileId={fileId}
+                                fileSize={fileSize}
+                                searchFrom={selection ? selection.start : state.cursor}
+                                hasSelection={selection !== null}
+                                dataVersion={dataVersion}
+                                request={searchRequest}
+                                onFound={onFound}
+                                onMatchesChange={setSearchMatches}
+                                onError={onSearchError}
+                            />
+                        ),
                     },
                 ]}
             />

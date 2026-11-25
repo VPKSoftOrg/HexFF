@@ -118,6 +118,11 @@ impl Document {
         })
     }
 
+    /// The size of the edited content in bytes.
+    pub fn size(&self) -> u64 {
+        self.table.len()
+    }
+
     /// The canonical path of the file.
     pub fn canonical_path(&self) -> &Path {
         &self.canonical_path

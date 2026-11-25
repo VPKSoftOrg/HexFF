@@ -9,14 +9,20 @@ use inspect::{
     inspect_data as inspect_data_bytes, inspect_text as inspect_text_bytes, DataInPosition,
     TextDataInPosition, DATA_INSPECTOR_LENGTH,
 };
+use search::{SearchDirection, SearchOptions, SearchQuery, SearchResult};
+use std::collections::HashMap;
 use std::path::PathBuf;
-use tauri::{ipc::Response, State};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+use tauri::{ipc::Response, AppHandle, Emitter, State};
 
 mod config;
 mod documents;
 mod history;
 mod inspect;
 mod piece_table;
+mod search;
 
 pub fn run() {
     tauri::Builder::default()
@@ -26,6 +32,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(DocumentStore::default())
+        .manage(SearchRegistry::default())
         .invoke_handler(tauri::generate_handler![
             load_settings,
             save_settings,
@@ -41,7 +48,9 @@ pub fn run() {
             save_file,
             save_file_as,
             check_file_changed,
-            reload_file
+            reload_file,
+            search_document,
+            cancel_search
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -309,4 +318,108 @@ async fn reload_file(
     })
     .await?;
     Ok(document)
+}
+
+/// The cancel flags of running searches, by the search id the frontend chose.
+#[derive(Default)]
+struct SearchRegistry {
+    cancel_flags: Mutex<HashMap<u64, Arc<AtomicBool>>>,
+}
+
+/// The largest number of matches a "find all" search returns.
+const MAX_SEARCH_RESULTS: usize = 10_000;
+
+/// How often search progress is reported at most.
+const SEARCH_PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
+
+/// Search progress, sent as the `search-progress` event.
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SearchProgress {
+    search_id: u64,
+    /// The number of bytes scanned so far.
+    scanned: u64,
+    /// The size of the content being searched.
+    total: u64,
+}
+
+/// Searches an open document.
+///
+/// The document is locked only while each chunk is read, so it stays readable during a long
+/// search. Progress is sent as `search-progress` events; `cancel_search` with the same
+/// `search_id` stops the search, which then returns the matches found so far.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)] // Tauri commands receive their arguments one by one.
+async fn search_document(
+    id: DocumentId,
+    search_id: u64,
+    query: SearchQuery,
+    from: u64,
+    direction: SearchDirection,
+    app: AppHandle,
+    store: State<'_, DocumentStore>,
+    registry: State<'_, SearchRegistry>,
+) -> Result<SearchResult, String> {
+    let pattern = query.to_pattern()?;
+    let document = store.get(id)?;
+    let cancel = Arc::new(AtomicBool::new(false));
+    registry
+        .cancel_flags
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(search_id, Arc::clone(&cancel));
+
+    let result = run_blocking(move || {
+        let total = lock_document(&document)?.size();
+        let mut last_progress = Instant::now();
+        search::search(
+            &pattern,
+            total,
+            SearchOptions {
+                from,
+                direction,
+                limit: MAX_SEARCH_RESULTS,
+            },
+            &cancel,
+            |offset, length| {
+                lock_document(&document)
+                    .map_err(std::io::Error::other)?
+                    .read_range(offset, length)
+            },
+            |scanned| {
+                if last_progress.elapsed() >= SEARCH_PROGRESS_INTERVAL {
+                    last_progress = Instant::now();
+                    let _ = app.emit(
+                        "search-progress",
+                        SearchProgress {
+                            search_id,
+                            scanned,
+                            total,
+                        },
+                    );
+                }
+            },
+        )
+        .map_err(|e| e.to_string())
+    })
+    .await;
+
+    if let Ok(mut flags) = registry.cancel_flags.lock() {
+        flags.remove(&search_id);
+    }
+    result
+}
+
+/// Cancels a running search. Cancelling a search that already finished does nothing.
+#[tauri::command]
+fn cancel_search(search_id: u64, registry: State<'_, SearchRegistry>) -> Result<(), String> {
+    if let Some(flag) = registry
+        .cancel_flags
+        .lock()
+        .map_err(|e| e.to_string())?
+        .get(&search_id)
+    {
+        flag.store(true, Ordering::Relaxed);
+    }
+    Ok(())
 }
