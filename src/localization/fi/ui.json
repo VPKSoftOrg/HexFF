@@ -68,5 +68,8 @@
     "searchWrappedToStart": "Jatkettiin tiedoston alusta",
     "searchWrappedToEnd": "Jatkettiin tiedoston lopusta",
     "searchMatchCount": "{{count}} osumaa",
-    "searchFirstMatches": "Näytetään ensimmäiset {{count}} osumaa"
+    "searchFirstMatches": "Näytetään ensimmäiset {{count}} osumaa",
+    "openRecent": "Avaa viimeisimmät",
+    "clearRecentFiles": "Tyhjennä viimeisimmät tiedostot",
+    "fileMissing": "puuttuu"
 }

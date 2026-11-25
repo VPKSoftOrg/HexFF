@@ -209,6 +209,43 @@ const checkFileChanged = (id: number) => invokeCommand<boolean>("check_file_chan
  */
 const reloadFile = (id: number) => invokeCommand<DocumentInfo>("reload_file", { id });
 
+/** A recently opened file. */
+type RecentFile = {
+    /** The path as the file was opened. */
+    path: string;
+    /** The file name without the directory. */
+    name: string;
+    /** Whether the file exists now. */
+    exists: boolean;
+};
+
+/** Gets the recently opened files, most recent first. */
+const getRecentFiles = () => invokeCommand<RecentFile[]>("get_recent_files");
+
+/**
+ * Removes a file from the recently opened files.
+ * @param path The path of the file.
+ * @returns The updated list.
+ */
+const removeRecentFile = (path: string) => invokeCommand<RecentFile[]>("remove_recent_file", { path });
+
+/** Clears the recently opened files. Returns the (empty) list. */
+const clearRecentFiles = () => invokeCommand<RecentFile[]>("clear_recent_files");
+
+/**
+ * Takes the files the operating system asked to open (command line, a second launch,
+ * or macOS "open file" events).
+ */
+const takePendingOpenFiles = () => invokeCommand<string[]>("take_pending_open_files");
+
+/**
+ * Listens for new files the operating system asks to open; take them with {@link takePendingOpenFiles}.
+ * @param callback Called when there are files to take.
+ * @returns A function that stops listening.
+ */
+const onOpenFilesRequested = (callback: () => void): Promise<UnlistenFn> =>
+    listen("open-files-requested", () => callback());
+
 /** A text encoding for text searches. */
 type TextEncoding = "ascii" | "utf8" | "utf16Le" | "utf16Be" | "utf32Le" | "utf32Be";
 
@@ -276,6 +313,7 @@ export type {
     DataInPositionResult,
     DocumentInfo,
     NumberKind,
+    RecentFile,
     SaveOutcome,
     SearchDirection,
     SearchProgress,
@@ -288,18 +326,23 @@ export type {
 export {
     cancelSearch,
     checkFileChanged,
+    clearRecentFiles,
     closeFile,
     editDocument,
     getOpenFiles,
+    getRecentFiles,
     inspectData,
     inspectText,
+    onOpenFilesRequested,
     onSearchProgress,
     openFile,
     readRange,
     redoEdit,
     reloadFile,
+    removeRecentFile,
     saveFile,
     saveFileAs,
     searchDocument,
+    takePendingOpenFiles,
     undoEdit,
 };

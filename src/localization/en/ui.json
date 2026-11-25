@@ -68,5 +68,8 @@
     "searchWrappedToStart": "Continued from the start of the file",
     "searchWrappedToEnd": "Continued from the end of the file",
     "searchMatchCount": "{{count}} matches",
-    "searchFirstMatches": "Showing the first {{count}} matches"
+    "searchFirstMatches": "Showing the first {{count}} matches",
+    "openRecent": "Open recent",
+    "clearRecentFiles": "Clear recent files",
+    "fileMissing": "missing"
 }
