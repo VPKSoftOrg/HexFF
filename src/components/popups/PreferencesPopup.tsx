@@ -30,7 +30,7 @@ type PreferencesPopupProps = {
  * @param param0 The component props: {@link PreferencesPopupProps}.
  * @returns A component.
  */
-const PreferencesPopupComponent = ({
+let PreferencesPopup = ({
     className, //
     visible,
     settings,
@@ -152,7 +152,7 @@ const PreferencesPopupComponent = ({
     );
 };
 
-const PreferencesPopup = styled(PreferencesPopupComponent)`
+PreferencesPopup = styled(PreferencesPopup)`
     display: flex;
     flex-direction: column;
     height: 100%;

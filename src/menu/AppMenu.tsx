@@ -33,7 +33,7 @@ export type AppMenuProps = {
  * @param param0 The component props {@link AppMenuProps}.
  * @returns A component.
  */
-const AppMenu = ({
+let AppMenu = ({
     items,
     className, //
     mode = "horizontal",
@@ -58,11 +58,11 @@ const AppMenu = ({
     );
 };
 
-const StyledAppMenu = styled(AppMenu)`
+AppMenu = styled(AppMenu)`
     display: flex;
     flex-direction: column;
     min-height: 0px;
     margin-bottom: 10px;
 `;
 
-export { StyledAppMenu as AppMenu };
+export { AppMenu };

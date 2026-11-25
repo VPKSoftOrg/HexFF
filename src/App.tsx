@@ -6,7 +6,7 @@ import { styled } from "styled-components";
 import "./App.css";
 import type { HexViewCommand } from "./components/app/HexView/HexView";
 import { TabbedFiles } from "./components/app/TabbedFilesComponent";
-import { StyledTitle } from "./components/app/WindowTitle";
+import { WindowTitle } from "./components/app/WindowTitle";
 import { AboutPopup } from "./components/popups/AboutPopup";
 import { PreferencesPopup } from "./components/popups/PreferencesPopup";
 import { useAntdTheme, useAntdToken } from "./context/AntdThemeContext";
@@ -45,7 +45,7 @@ const isMac = /mac/i.test(navigator.userAgent);
  *
  * @return {JSX.Element} The rendered application component.
  */
-const App = () => {
+let App = () => {
     const [aboutPopupVisible, setAboutPopupVisible] = React.useState(false);
     const [preferencesVisible, setPreferencesVisible] = React.useState(false);
     const [settings, settingsLoaded, updateSettings, reloadSettings] = useSettings();
@@ -516,7 +516,7 @@ const App = () => {
         <>
             {contextHolder}
             {promptsHolder}
-            <StyledTitle //
+            <WindowTitle //
                 title="HexFF"
                 onClose={onClose}
                 darkMode={previewDarkMode ?? settings.dark_mode ?? false}
@@ -564,7 +564,7 @@ const App = () => {
     );
 };
 
-const SyledApp = styled(App)`
+App = styled(App)`
     height: 100%;
     width: 100%;
     display: contents;
@@ -576,4 +576,4 @@ const SyledApp = styled(App)`
     }
 `;
 
-export { SyledApp as App };
+export { App };

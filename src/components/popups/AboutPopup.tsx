@@ -23,7 +23,7 @@ type AboutPopupProps = {
     textColor: string;
 } & CommonProps;
 
-const AboutPopup = ({
+let AboutPopup = ({
     className, //
     visible,
     onClose,
@@ -161,7 +161,7 @@ SOFTWARE."
     );
 };
 
-const StyledAboutPopup = styled(AboutPopup)`
+AboutPopup = styled(AboutPopup)`
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -244,4 +244,4 @@ const StyledAboutPopup = styled(AboutPopup)`
     }
 `;
 
-export { StyledAboutPopup as AboutPopup };
+export { AboutPopup };

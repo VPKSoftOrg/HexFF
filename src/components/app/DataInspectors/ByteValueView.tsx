@@ -20,7 +20,7 @@ const replaceEndiannes = /_le|_be/g;
  * @param param0 The component props: {@link ByteValueViewProps}.
  * @returns A component.
  */
-const ByteValueViewComponent = ({
+let ByteValueView = ({
     className, //
     value,
     bigEndian,
@@ -111,7 +111,7 @@ const getValueByKey = (key: DataInPositionResultKey, value: DataInPositionResult
     return value[key] ?? "";
 };
 
-const ByteValueView = styled(ByteValueViewComponent)`
+ByteValueView = styled(ByteValueView)`
     display: flex;
     width: 100%;
     .TableBody {

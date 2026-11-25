@@ -185,7 +185,7 @@ const useCursorData = (
  * @param param0 The component props: {@link HexViewProps}.
  * @returns A component.
  */
-const HexViewComponent = ({
+let HexView = ({
     className, //
     fileId,
     fileSize,
@@ -813,7 +813,7 @@ const HexViewComponent = ({
     );
 };
 
-const HexView = styled(HexViewComponent)`
+HexView = styled(HexView)`
     display: flex;
     flex-direction: row;
     gap: 12px;

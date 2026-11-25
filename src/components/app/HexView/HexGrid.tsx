@@ -65,7 +65,7 @@ const cellFromEvent = (event: React.MouseEvent) => {
  * @param param0 The component props: {@link HexGridProps}.
  * @returns A component.
  */
-const HexGridComponent = ({
+let HexGrid = ({
     className, //
     fileSize,
     topRow,
@@ -236,7 +236,7 @@ const HexGridComponent = ({
     );
 };
 
-const HexGrid = styled(HexGridComponent)`
+HexGrid = styled(HexGrid)`
     font-family: monospace;
     font-size: 14px;
     user-select: none;
