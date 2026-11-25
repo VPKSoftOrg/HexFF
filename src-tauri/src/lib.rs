@@ -535,6 +535,30 @@ mod tests {
     use serde_json::json;
     use std::io::Write;
 
+    /// package.json holds the app version (tauri.conf.json reads it from there); the crate version
+    /// must match it. Fix a mismatch with `npm run sync-version`.
+    #[test]
+    fn crate_version_matches_package_json() {
+        let package: serde_json::Value =
+            serde_json::from_str(include_str!("../../package.json")).unwrap();
+        let version = package["version"].as_str().unwrap();
+        assert_eq!(version, env!("CARGO_PKG_VERSION"));
+
+        let core = version.split(['-', '+']).next().unwrap();
+        let parts: Vec<&str> = core.split('.').collect();
+        assert_eq!(parts.len(), 3, "{version} is not MAJOR.MINOR.PATCH");
+        for part in parts {
+            assert!(
+                part.parse::<u64>().is_ok(),
+                "{version} has a non-numeric part"
+            );
+            assert!(
+                part == "0" || !part.starts_with('0'),
+                "{version} has a leading zero"
+            );
+        }
+    }
+
     fn temp_file(content: &[u8]) -> tempfile::NamedTempFile {
         let mut file = tempfile::NamedTempFile::new().unwrap();
         file.write_all(content).unwrap();

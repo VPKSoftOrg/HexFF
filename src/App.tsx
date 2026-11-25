@@ -56,7 +56,7 @@ let App = () => {
     const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
     const { translate, setLocale } = useTranslate();
     const { token } = useAntdToken();
-    const { setTheme, updateBackround } = useAntdTheme();
+    const { setTheme, updateBackground } = useAntdTheme();
     const [previewDarkMode, setPreviewDarkMode] = React.useState<boolean | null>(null);
 
     const { setStateSaverEnabled, restoreState } = useWindowStateSaver(10_000);
@@ -496,8 +496,8 @@ let App = () => {
     // This effect occurs when the theme token has been changed and updates the
     // root and body element colors to match to the new theme.
     React.useEffect(() => {
-        updateBackround?.(token);
-    }, [token, updateBackround]);
+        updateBackground?.(token);
+    }, [token, updateBackground]);
 
     const toggleDarkMode = React.useCallback(
         (antdTheme: "light" | "dark") => {

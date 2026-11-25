@@ -32,6 +32,10 @@ CI (`.github/workflows/main-lint-test-deploy.yml`) is **manual only** (`workflow
 
 All steps must pass before pushing. If a step fails, fix it (`npm run lint-fix`, `cargo fmt --all`) and rerun.
 
+## Versioning
+
+The app uses [Semantic Versioning](https://semver.org/); `CHANGELOG.md` lists the versions. `package.json` is the single source of the version: `tauri.conf.json` reads it (`"version": "../package.json"`) and `scripts/sync-version.mjs` copies it to `src-tauri/Cargo.toml` and `Cargo.lock`. Bump with `npm version patch|minor|major` (runs the sync through the `version` lifecycle script; add `--no-git-tag-version` to skip the commit and tag), or edit `package.json` and run `npm run sync-version`. The Rust test `crate_version_matches_package_json` fails if the versions drift apart. Add a `CHANGELOG.md` entry with each version.
+
 ## Architecture
 
 **File access lives entirely in Rust.** The frontend never reads files directly; it calls Tauri commands registered in `src-tauri/src/lib.rs` (`generate_handler!`). All commands are wrapped in `src/utilities/app/TauriWrappers.ts` (documents) and `src/utilities/app/Settings.ts` (`load_settings`/`save_settings`). When adding a command, register it in `lib.rs` and add a typed wrapper there — frontend uses camelCase args, Rust receives snake_case.

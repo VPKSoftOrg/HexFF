@@ -24,7 +24,7 @@ const useWindowEventListener = (event: TauriEvent, callback: () => void) => {
             .then(unlisten => {
                 unListenResize = unlisten;
             })
-            // eslint-disable-next-line no-console
+            // biome-ignore lint/suspicious/noConsole: The error is logged to the console for debugging purposes.
             .catch(console.error);
 
         return () => {
