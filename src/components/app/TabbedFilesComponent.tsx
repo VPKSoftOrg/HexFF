@@ -103,13 +103,15 @@ TabbedFiles = styled(TabbedFiles)`
     height: 100%;
     min-height: 0;
 
-    // Let the active tab fill the remaining height so the hex grid can size itself.
-    .ant-tabs-content-holder {
+    // Let the active tab fill the remaining height so the hex grid can size itself. Without a fixed
+    // height the view grows with its content, and the text inspector (one row per visible grid row)
+    // would then keep adding grid rows. The child combinators keep the nested inspector tabs unaffected.
+    > .ant-tabs-body-holder {
         flex: 1;
         min-height: 0;
     }
-    .ant-tabs-content,
-    .ant-tabs-tabpane-active {
+    > .ant-tabs-body-holder > .ant-tabs-body,
+    > .ant-tabs-body-holder > .ant-tabs-body > .ant-tabs-content-active {
         height: 100%;
     }
 `;
