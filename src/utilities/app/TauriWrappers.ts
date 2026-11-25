@@ -16,7 +16,20 @@ type DocumentInfo = {
     modified: boolean;
     can_undo: boolean;
     can_redo: boolean;
+    /** Increases whenever the content is replaced from disk (after saving or reloading). */
+    generation: number;
 };
+
+/**
+ * The result of saving a document. Nothing is written unless the status is `saved`:
+ * - `changedOnDisk`: another program changed the file; save again with `force` to overwrite it.
+ * - `changedInPlace`: another program rewrote the open file, so the document's version can no longer
+ *   be read completely and can't be saved; the file has to be reloaded.
+ */
+type SaveOutcome =
+    | { status: "saved"; document: DocumentInfo }
+    | { status: "changedOnDisk" }
+    | { status: "changedInPlace" };
 
 /**
  * The result of undo or redo.
@@ -168,5 +181,46 @@ const undoEdit = (id: number) => invokeCommand<UndoResult>("undo_edit", { id });
  */
 const redoEdit = (id: number) => invokeCommand<UndoResult>("redo_edit", { id });
 
-export type { DataInPositionResult, DocumentInfo, TextDataInPosition, UndoResult };
-export { closeFile, editDocument, getOpenFiles, inspectData, inspectText, openFile, readRange, redoEdit, undoEdit };
+/**
+ * Saves an open document to its file.
+ * @param id The document identifier.
+ * @param force `true` to overwrite the file even if another program changed it.
+ */
+const saveFile = (id: number, force: boolean) => invokeCommand<SaveOutcome>("save_file", { id, force });
+
+/**
+ * Saves an open document to a new file, which the document then refers to.
+ * @param id The document identifier.
+ * @param path The path of the new file.
+ */
+const saveFileAs = (id: number, path: string) => invokeCommand<SaveOutcome>("save_file_as", { id, path });
+
+/**
+ * Checks whether another program changed an open document's file since it was opened, saved or reloaded.
+ * @param id The document identifier.
+ */
+const checkFileChanged = (id: number) => invokeCommand<boolean>("check_file_changed", { id });
+
+/**
+ * Discards the edits of an open document and reads its file from disk again.
+ * @param id The document identifier.
+ * @returns The updated document.
+ */
+const reloadFile = (id: number) => invokeCommand<DocumentInfo>("reload_file", { id });
+
+export type { DataInPositionResult, DocumentInfo, SaveOutcome, TextDataInPosition, UndoResult };
+export {
+    checkFileChanged,
+    closeFile,
+    editDocument,
+    getOpenFiles,
+    inspectData,
+    inspectText,
+    openFile,
+    readRange,
+    redoEdit,
+    reloadFile,
+    saveFile,
+    saveFileAs,
+    undoEdit,
+};

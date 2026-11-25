@@ -36,5 +36,19 @@
     "redo": "Redo",
     "toggleInsertMode": "Insert / overwrite",
     "insertModeShort": "INS",
-    "overwriteModeShort": "OVR"
+    "overwriteModeShort": "OVR",
+    "save": "Save",
+    "saveAs": "Save as...",
+    "dontSave": "Don't save",
+    "saveChangesTitle": "Unsaved changes",
+    "saveChangesQuestion": "Do you want to save the changes to these files?",
+    "fileChangedTitle": "File changed on disk",
+    "overwriteChangedQuestion": "{{name}} was changed by another program. Overwrite it with your version?",
+    "overwrite": "Overwrite",
+    "reloadQuestion": "{{name}} was changed by another program. Reload it?",
+    "reloadModifiedQuestion": "{{name}} was changed by another program. Reload it and discard your unsaved changes?",
+    "reload": "Reload",
+    "keep": "Ignore",
+    "cannotSaveTitle": "Can't save the file",
+    "changedInPlaceMessage": "{{name}} was rewritten by another program while it was open, so your version of the unchanged parts can no longer be read and your changes can't be saved. Reload the file to see its current content."
 }

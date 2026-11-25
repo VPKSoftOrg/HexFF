@@ -53,6 +53,8 @@ type HexViewProps = {
     fileId: number;
     /** The size of the edited content. */
     fileSize: number;
+    /** Increases when the content was replaced from disk (saved or reloaded). */
+    generation: number;
     /** A value indicating whether this view is in the active tab. */
     isActive: boolean;
     /** The latest command for the active view. */
@@ -103,6 +105,14 @@ const useVisibleData = (
     const [data, setData] = React.useState<(LoadedBytes & { text: TextDataInPosition }) | null>(null);
     const requestId = React.useRef(0);
 
+    // Ignore results that arrive after the view is gone (e.g. its document was just closed).
+    React.useEffect(
+        () => () => {
+            requestId.current++;
+        },
+        []
+    );
+
     // biome-ignore lint/correctness/useExhaustiveDependencies: `version` is a reload trigger.
     React.useEffect(() => {
         const id = ++requestId.current;
@@ -138,6 +148,14 @@ const useCursorData = (
     const [data, setData] = React.useState<DataInPositionResult | undefined>();
     const requestId = React.useRef(0);
 
+    // Ignore results that arrive after the view is gone (e.g. its document was just closed).
+    React.useEffect(
+        () => () => {
+            requestId.current++;
+        },
+        []
+    );
+
     // biome-ignore lint/correctness/useExhaustiveDependencies: `version` is a reload trigger.
     React.useEffect(() => {
         const id = ++requestId.current;
@@ -170,6 +188,7 @@ const HexViewComponent = ({
     className, //
     fileId,
     fileSize,
+    generation,
     isActive,
     command,
     onDocumentChange,
@@ -255,8 +274,10 @@ const HexViewComponent = ({
     );
 
     const topOffset = state.topRow * BYTES_PER_ROW;
-    const visibleData = useVisibleData(fileId, topOffset, visibleRows * BYTES_PER_ROW, version, onReadError);
-    const cursorData = useCursorData(fileId, state.cursor, fileSize, version, onReadError);
+    // Both counters only grow, so their sum changes whenever the data must be read again.
+    const dataVersion = version + generation;
+    const visibleData = useVisibleData(fileId, topOffset, visibleRows * BYTES_PER_ROW, dataVersion, onReadError);
+    const cursorData = useCursorData(fileId, state.cursor, fileSize, dataVersion, onReadError);
     const selection = selectionRange(state, fileSize);
 
     // Fit as many rows as the grid area has room for (one row is the header).
@@ -279,6 +300,13 @@ const HexViewComponent = ({
             return topRow === current.topRow ? current : { ...current, topRow };
         });
     }, [fileSize, setViewState, visibleRows]);
+
+    // After saving or reloading, end any half-typed byte and keep the cursor inside the content.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: Runs when `generation` changes.
+    React.useEffect(() => {
+        endTyping();
+        setViewState(current => moveCursor(current, current.cursor, false, sizeRef.current, visibleRowsRef.current));
+    }, [generation]);
 
     // Take the keyboard focus when the tab becomes active. This waits for the tab switch to finish,
     // because the tab bar keeps the focus on the clicked tab for the rest of the click.

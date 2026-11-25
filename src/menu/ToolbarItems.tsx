@@ -1,5 +1,6 @@
 import {
     faDoorOpen,
+    faFloppyDisk,
     faFolderOpen,
     faGear,
     faInfo,
@@ -38,6 +39,12 @@ export const appToolbarItems = (localize?: LocalizeFunction): (ToolBarItem<MenuK
         title: localize?.("openFile") ?? "Open file",
         tooltipTitle: localize?.("openFile") ?? "Open file",
         clickActionObject: "openFile",
+    },
+    {
+        icon: <FontAwesomeIcon icon={faFloppyDisk} />,
+        title: localize?.("save") ?? "Save",
+        tooltipTitle: localize?.("save") ?? "Save",
+        clickActionObject: "saveMenu",
     },
     {
         icon: <FontAwesomeIcon icon={faLocationCrosshairs} />,

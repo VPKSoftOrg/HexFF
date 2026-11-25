@@ -3,7 +3,7 @@
 
 use config::{get_app_config, set_app_config, AppConfig};
 use documents::{
-    lock_document, Document, DocumentId, DocumentInfo, DocumentStore, MAX_READ_LENGTH,
+    lock_document, Document, DocumentId, DocumentInfo, DocumentStore, SaveResult, MAX_READ_LENGTH,
 };
 use inspect::{
     inspect_data as inspect_data_bytes, inspect_text as inspect_text_bytes, DataInPosition,
@@ -37,7 +37,11 @@ pub fn run() {
             inspect_text,
             edit_document,
             undo_edit,
-            redo_edit
+            redo_edit,
+            save_file,
+            save_file_as,
+            check_file_changed,
+            reload_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -174,13 +178,17 @@ async fn change_document<T: Send + 'static>(
     action: impl FnOnce(&mut Document) -> Result<T, String> + Send + 'static,
 ) -> Result<(T, DocumentInfo), String> {
     let document = store.get(id)?;
-    let (result, info) = run_blocking(move || {
+    let (result, info, canonical_path) = run_blocking(move || {
         let mut document = lock_document(&document)?;
         let result = action(&mut document)?;
-        Ok((result, document.info()))
+        Ok((
+            result,
+            document.info(),
+            document.canonical_path().to_path_buf(),
+        ))
     })
     .await?;
-    store.update_info(&info)?;
+    store.update_info(&info, &canonical_path)?;
     Ok((result, info))
 }
 
@@ -216,4 +224,89 @@ async fn undo_edit(id: DocumentId, store: State<'_, DocumentStore>) -> Result<Un
 async fn redo_edit(id: DocumentId, store: State<'_, DocumentStore>) -> Result<UndoResult, String> {
     let (offset, document) = change_document(&store, id, |document| Ok(document.redo())).await?;
     Ok(UndoResult { document, offset })
+}
+
+/// The result of saving a document.
+#[derive(serde::Serialize)]
+#[serde(tag = "status", rename_all = "camelCase")]
+enum SaveOutcome {
+    /// The document was saved.
+    Saved { document: DocumentInfo },
+    /// Nothing was written because another program changed the file; save again with `force` to overwrite.
+    ChangedOnDisk,
+    /// Nothing was written because another program rewrote the open file in place, so the document's
+    /// version can't be saved; the file has to be reloaded.
+    ChangedInPlace,
+}
+
+impl SaveOutcome {
+    fn new(result: SaveResult, document: DocumentInfo) -> Self {
+        match result {
+            SaveResult::Saved => Self::Saved { document },
+            SaveResult::ChangedOnDisk => Self::ChangedOnDisk,
+            SaveResult::ChangedInPlace => Self::ChangedInPlace,
+        }
+    }
+}
+
+/// Saves an open document to its file.
+///
+/// Without `force`, a file that another program changed since it was opened is not overwritten.
+#[tauri::command]
+async fn save_file(
+    id: DocumentId,
+    force: bool,
+    store: State<'_, DocumentStore>,
+) -> Result<SaveOutcome, String> {
+    let (result, document) = change_document(&store, id, move |document| {
+        document.save(force).map_err(|e| e.to_string())
+    })
+    .await?;
+    Ok(SaveOutcome::new(result, document))
+}
+
+/// Saves an open document to a new file, which the document then refers to.
+#[tauri::command]
+async fn save_file_as(
+    id: DocumentId,
+    path: String,
+    store: State<'_, DocumentStore>,
+) -> Result<SaveOutcome, String> {
+    let path = PathBuf::from(path);
+    if store.is_open_elsewhere(id, &path)? {
+        return Err(format!(
+            "{} is open in another tab; close it first",
+            path.display()
+        ));
+    }
+    let (result, document) = change_document(&store, id, move |document| {
+        document
+            .save_as(&path)
+            .map_err(|e| format!("{}: {e}", path.display()))
+    })
+    .await?;
+    Ok(SaveOutcome::new(result, document))
+}
+
+/// Checks whether another program changed an open document's file since it was opened, saved or reloaded.
+#[tauri::command]
+async fn check_file_changed(
+    id: DocumentId,
+    store: State<'_, DocumentStore>,
+) -> Result<bool, String> {
+    let document = store.get(id)?;
+    run_blocking(move || Ok(lock_document(&document)?.changed_on_disk())).await
+}
+
+/// Discards the edits of an open document and reads its file from disk again.
+#[tauri::command]
+async fn reload_file(
+    id: DocumentId,
+    store: State<'_, DocumentStore>,
+) -> Result<DocumentInfo, String> {
+    let (_, document) = change_document(&store, id, |document| {
+        document.reload().map_err(|e| e.to_string())
+    })
+    .await?;
+    Ok(document)
 }
