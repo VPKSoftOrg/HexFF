@@ -7,7 +7,7 @@ import * as React from "react";
 import { styled } from "styled-components";
 import { useTauriUpdater } from "../../hooks/UseTauriUpdater";
 import { useTranslate } from "../../localization/Localization";
-import { GithubLogo, LogoImage } from "../../utilities/app/Images";
+import { AppIcon, GithubLogo, LogoImage } from "../../utilities/app/Images";
 import { useNotify } from "../../utilities/app/Notify";
 import type { CommonProps } from "../Types";
 
@@ -46,9 +46,9 @@ const AboutPopup = ({
         });
     }, []);
 
-    // Open the https://github.com/VPKSoft URL when the corresponding component is clicked.
-    const openAppUrl = React.useCallback(() => {
-        void open("https://github.com/VPKSoft");
+    // Open the https://tauri.app URL when the Tauri logo is clicked.
+    const openTauriUrl = React.useCallback(() => {
+        void open("https://tauri.app");
     }, []);
 
     // Open the github.com URL when the corresponding component is clicked.
@@ -79,8 +79,13 @@ const AboutPopup = ({
         >
             {contextHolder}
             <div className={classNames(AboutPopup.name, className)}>
-                <div className="Popup-versionText">{`${appName}, ${translate("copyright")} © 2024-2026 VPKSoft, v.${appVersion}`}</div>
-                <div className="Popup-licenseText">{translate("license")}</div>
+                <div className="Popup-header">
+                    <div className="Popup-headerTexts">
+                        <div className="Popup-versionText">{`${appName}, ${translate("copyright")} © 2024-2026 VPKSoft, v.${appVersion}`}</div>
+                        <div className="Popup-licenseText">{translate("license")}</div>
+                    </div>
+                    <img src={AppIcon} className="Popup-appIcon" alt={appName} />
+                </div>
                 <div className="Popup-licenseContent">
                     {`MIT License
 
@@ -106,7 +111,7 @@ SOFTWARE."
                 `}
                 </div>
                 <div className="LogoImages">
-                    <img src={LogoImage} className="LogoImage" onClick={openAppUrl} />
+                    <img src={LogoImage} className="LogoImage" onClick={openTauriUrl} />
 
                     <img src={GithubLogo} className="LogoImage" onClick={openGitHubUrl} />
                 </div>
@@ -161,6 +166,23 @@ const StyledAboutPopup = styled(AboutPopup)`
     flex-direction: column;
     height: 100%;
     max-height: 500px;
+    .Popup-header {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+    .Popup-headerTexts {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+    .Popup-appIcon {
+        width: 64px;
+        height: 64px;
+        flex-shrink: 0;
+    }
     .Popup-versionText {
         font-weight: bolder;
         margin-bottom: 10px;
